@@ -524,6 +524,16 @@ kbd {
         </svg>
         Descargar SVG
       </button>
+      <button class="ctrl-btn btn-download-cfd" id="btnDownloadCFD" title="Exportar SVG con trazos sólidos para simulación CFD"
+              style="border:1.5px solid #4f8ef7; background:#4f8ef7; color:#fff;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7,10 12,15 17,10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Exportar CFD
+      </button>
     </div>
   </footer>
 
@@ -2371,6 +2381,50 @@ document.getElementById('btnDownload').addEventListener('click', () => {
           + `(${optStats.tracesMerged} unido${optStats.tracesMerged === 1 ? '' : 's'} en menos trazos) · `
           + `${optStats.jointsWelded} ${optStats.jointsWelded === 1 ? 'unión soldada' : 'uniones soldadas'} · `
           + `${optStats.cornersFixed} esquina${optStats.cornersFixed === 1 ? '' : 's'} afilada${optStats.cornersFixed === 1 ? '' : 's'}`);
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+   DOWNLOAD SVG FOR CFD
+   Exports the same geometry as "Descargar SVG" but keeps the strokes
+   solid and at their original thickness — the LBM rasterizer needs
+   thick walls, not the hairline outlines optimizeForLaserCutting()
+   produces, so that pass is intentionally skipped here.
+   ══════════════════════════════════════════════════════════════════════ */
+
+document.getElementById('btnDownloadCFD').addEventListener('click', () => {
+  if (currentPathEl && penPoints.length > 1) commitPenPath();
+  else if (currentPathEl) clearPenPreview();
+
+  const clone = svg.cloneNode(true);
+  const prev  = clone.querySelector('#previewLayer');
+  if (prev) prev.remove();
+  const grid  = clone.querySelector('#gridLayer');
+  if (grid) grid.remove();
+  const bg    = clone.querySelector('#backgroundTemplate');
+  if (bg) bg.remove();
+
+  const cloneWorkspace = clone.querySelector('#studentWorkspace');
+  cloneWorkspace.querySelectorAll('*').forEach(el => {
+    el.setAttribute('stroke', '#000000');
+  });
+
+  clone.setAttribute('xmlns',  'http://www.w3.org/2000/svg');
+  clone.setAttribute('width',  '50mm');
+  clone.setAttribute('height', '50mm');
+
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+            + new XMLSerializer().serializeToString(clone);
+
+  const blob   = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  const url    = URL.createObjectURL(blob);
+  const anchor = Object.assign(document.createElement('a'),
+    { href: url, download: 'geometria_fluidos.svg', style: 'display:none' });
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+
+  flashHUD('Geometría exportada para CFD (trazos sólidos)');
 });
 
 /* ══════════════════════════════════════════════════════════════════════
