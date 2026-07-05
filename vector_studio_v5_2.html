@@ -1,0 +1,2381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector Studio — Mini Laboratorios</title>
+<style>
+
+/* ══════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ══════════════════════════════════════════════════════ */
+:root {
+  --bg:             #e6eaf1;
+  --card:           #ffffff;
+  --toolbar-bg:     #191927;
+  --toolbar-border: rgba(255,255,255,0.05);
+  --accent-a:       #4f8ef7;
+  --accent-b:       #9d7cf4;
+  --tool-ring:      rgba(79,142,247,0.42);
+  --tool-fill:      rgba(79,142,247,0.12);
+  --border:         #e0e5ed;
+  --amber-bg:       #fffbf0;
+  --amber-border:   #e8b45a;
+  --amber-text:     #8a5d0e;
+  --amber-hover:    #fff3d0;
+  --red-bg:         #fff5f5;
+  --red-border:     #fca5a5;
+  --red-text:       #b91c1c;
+  --red-hover:      #fee2e2;
+  --green:          #10b981;
+  --green-hover:    #059669;
+  --shadow-card:    0 8px 40px rgba(0,0,0,0.11), 0 1px 4px rgba(0,0,0,0.07);
+  --shadow-canvas:  0 3px 20px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.07);
+}
+
+/* ══════════════════════════════════════════════════════
+   RESET & BASE
+   ══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+/* ══════════════════════════════════════════════════════
+   APP CARD
+   ══════════════════════════════════════════════════════ */
+.app-card {
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: fit-content;
+  min-width: 480px;
+}
+
+.accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════
+   TOOLBAR
+   ══════════════════════════════════════════════════════ */
+.toolbar {
+  background: var(--toolbar-bg);
+  display: flex;
+  align-items: center;
+  padding: 9px 15px;
+  gap: 9px;
+  border-bottom: 1px solid var(--toolbar-border);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #bfc8dc;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+.brand-gem {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.toolbar-sep { width: 1px; height: 24px; background: rgba(255,255,255,0.09); flex-shrink: 0; }
+.tool-vsep   { width: 1px; height: 18px; background: rgba(255,255,255,0.11); margin: 0 3px; flex-shrink: 0; }
+
+.tool-group { display: flex; align-items: center; gap: 2px; }
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(191,200,220,0.60);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.tool-btn:hover  { background: rgba(255,255,255,0.07); color: #bfc8dc; }
+.tool-btn.active { background: var(--tool-fill); border-color: var(--tool-ring); color: var(--accent-a); }
+.tool-btn svg    { flex-shrink: 0; pointer-events: none; }
+
+/* ── Stroke-width toggle ─────────────────────────────── */
+.lw-group {
+  display: flex;
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.lw-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(191,200,220,0.55);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  user-select: none;
+  line-height: 1;
+}
+.lw-btn + .lw-btn            { border-left: 1px solid rgba(255,255,255,0.10); }
+.lw-btn:hover:not(.active)   { background: rgba(255,255,255,0.06); color: #bfc8dc; }
+.lw-btn.active               { background: rgba(79,142,247,0.18); color: var(--accent-a); }
+
+/* ── Live coordinate HUD ─────────────────────────────── */
+.coord-hud {
+  font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 10.5px;
+  color: #3e4d5e;
+  white-space: pre;
+  flex-shrink: 0;
+  min-width: 128px;
+  text-align: right;
+  transition: color 0.15s;
+}
+.coord-hud.lit  { color: #6a8fc0; }
+.coord-hud.snap { color: #14b8d4; }  /* cyan tint while snapping */
+
+/* ══════════════════════════════════════════════════════
+   CANVAS AREA
+   ══════════════════════════════════════════════════════ */
+.canvas-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 40px;
+  background: #edf0f6;
+  flex-shrink: 0;
+}
+
+/*
+  Displayed at 400 × 400 CSS px.
+  Logical coordinate space: 0 – 141.7 in each axis (50 mm × 50 mm).
+  1 SVG unit = 1 typographic point (pt) = 0.3528 mm.
+  Consequence: stroke-width="2.835" is exactly 1 mm; stroke-width="5.669" is 2 mm.
+  (1 mm = 72/25.4 pt ≈ 2.83465 pt — the minimum stroke weight offered,
+  so every shape/pen line in the canvas prints at least 1 mm thick.)
+*/
+#svgCanvas {
+  display: block;
+  width:  400px;
+  height: 400px;
+  border-radius: 3px;
+  box-shadow: var(--shadow-canvas);
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════
+   CONTROLS BAR
+   ══════════════════════════════════════════════════════ */
+.controls-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-top: 1px solid var(--border);
+  background: #fafbfc;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.ctrl-group  { display: flex; gap: 6px; }
+.ctrl-spacer { flex: 1; }
+
+.ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+}
+.ctrl-btn:active:not(:disabled) { opacity: 0.78; transform: translateY(1px); }
+.ctrl-btn:disabled               { opacity: 0.28; cursor: not-allowed; }
+.ctrl-btn svg                    { flex-shrink: 0; pointer-events: none; }
+
+.btn-undo, .btn-redo {
+  border: 1.5px solid var(--amber-border);
+  color: var(--amber-text);
+  background: var(--amber-bg);
+}
+.btn-undo:hover:not(:disabled),
+.btn-redo:hover:not(:disabled) { background: var(--amber-hover); }
+
+.btn-clear {
+  border: 1.5px solid var(--red-border);
+  color: var(--red-text);
+  background: var(--red-bg);
+}
+.btn-clear:hover { background: var(--red-hover); }
+
+.btn-download {
+  border: 1.5px solid var(--green);
+  color: #fff;
+  background: var(--green);
+}
+.btn-download:hover { background: var(--green-hover); border-color: var(--green-hover); }
+
+.btn-preview {
+  border: 1.5px solid var(--tool-ring);
+  color: var(--accent-a);
+  background: var(--tool-fill);
+}
+.btn-preview:hover              { background: rgba(79,142,247,0.20); }
+.btn-preview.active             { background: var(--accent-a); color: #fff; border-color: var(--accent-a); }
+
+/* Canvas visibly changes character while the laser preview is showing —
+   mirrors Illustrator's Outline View feel (view-only, no crosshair). */
+#svgCanvas.laser-preview-active { cursor: default; box-shadow: var(--shadow-canvas), 0 0 0 2.5px var(--accent-a); }
+
+/* ══════════════════════════════════════════════════════
+   HINT STRIP
+   ══════════════════════════════════════════════════════ */
+.hint-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 7px 16px 8px;
+  border-top: 1px solid var(--border);
+  background: #f8f9fb;
+  flex-shrink: 0;
+}
+.hint-item { display: flex; align-items: center; gap: 3px; font-size: 10.5px; color: #9aa3b0; }
+kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  border: 1px solid #d0d5dd;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: #f0f3f7;
+  color: #3c4a5c;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+</style>
+</head>
+<body>
+
+<div class="app-card">
+  <div class="accent-bar"></div>
+
+  <header class="toolbar">
+
+    <div class="brand">
+      <span class="brand-gem">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <polygon points="6,1 11,5 6,11 1,5" fill="rgba(255,255,255,0.92)"/>
+        </svg>
+      </span>
+      Vector Studio
+    </div>
+
+    <div class="toolbar-sep"></div>
+
+    <div class="tool-group" role="toolbar" aria-label="Herramientas de dibujo">
+
+      <button class="tool-btn active" data-tool="pen-curve"
+              title="Pluma Curva — trazo suave tipo Catmull-Rom (P)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M3 18 C 6 8, 14 4, 21 9"/>
+          <circle cx="3"  cy="18" r="2.2" fill="currentColor" stroke="none"/>
+          <circle cx="21" cy="9"  r="2.2" fill="currentColor" stroke="none"/>
+        </svg>
+        Curva
+      </button>
+
+      <button class="tool-btn" data-tool="pen-straight"
+              title="Pluma Recta — segmentos rectos conectados (L)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <line x1="4" y1="20" x2="20" y2="4"/>
+          <circle cx="4"  cy="20" r="2.2" fill="currentColor" stroke="none"/>
+          <circle cx="20" cy="4"  r="2.2" fill="currentColor" stroke="none"/>
+        </svg>
+        Línea
+      </button>
+
+      <div class="tool-vsep"></div>
+
+      <button class="tool-btn" data-tool="square"
+              title="Cuadrado — arrastra para dibujar un cuadrado perfecto (S)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+        </svg>
+        Cuadrado
+      </button>
+
+      <button class="tool-btn" data-tool="triangle"
+              title="Triángulo — arrastra para dibujar un triángulo (T)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="12,2.5 2,21.5 22,21.5"/>
+        </svg>
+        Tri
+      </button>
+
+      <div class="tool-vsep"></div>
+
+      <button class="tool-btn" data-tool="move"
+              title="Mover — haz clic en una figura y arrástrala para reposicionarla (M). Shift = bloqueo de eje, flechas = mover ligeramente, Backspace = Borrar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="5,9 2,12 5,15"/>
+          <polyline points="9,5 12,2 15,5"/>
+          <polyline points="15,19 12,22 9,19"/>
+          <polyline points="19,9 22,12 19,15"/>
+          <line x1="2"  y1="12" x2="22" y2="12"/>
+          <line x1="12" y1="2"  x2="12" y2="22"/>
+        </svg>
+        Mover
+      </button>
+
+      <button class="tool-btn" data-tool="rotate"
+              title="Rotar — haz clic en una figura para seleccionarla, arrastra el asa para rotar (R). Backspace = Borrar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="1,4 1,10 7,10"/>
+          <path d="M3.5 15 A9 9 0 1 0 4 6.3L1 10"/>
+        </svg>
+        Rotar
+      </button>
+
+      <div class="tool-vsep"></div>
+
+      <button class="tool-btn" id="btnAlignH"
+              title="Centrar horizontalmente — mueve la figura seleccionada al centro del lienzo en el eje X">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="2.5,2"/>
+          <rect x="5" y="8" width="14" height="8" rx="1.5"/>
+        </svg>
+        Centrar H
+      </button>
+
+      <button class="tool-btn" id="btnAlignV"
+              title="Centrar verticalmente — mueve la figura seleccionada al centro del lienzo en el eje Y">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="2" y1="12" x2="22" y2="12" stroke-dasharray="2.5,2"/>
+          <rect x="8" y="5" width="8" height="14" rx="1.5"/>
+        </svg>
+        Centrar V
+      </button>
+
+      <div class="tool-vsep"></div>
+
+      <button class="tool-btn" id="btnGrid"
+              title="Alternar la cuadrícula de alineación de 5 mm (G). No se incluye en el SVG exportado">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <line x1="9"  y1="3" x2="9"  y2="21"/>
+          <line x1="15" y1="3" x2="15" y2="21"/>
+          <line x1="3"  y1="9" x2="21" y2="9"/>
+          <line x1="3"  y1="15" x2="21" y2="15"/>
+        </svg>
+        Cuadrícula
+      </button>
+
+    </div>
+
+    <div class="toolbar-sep"></div>
+
+    <div class="lw-group" role="group" aria-label="Grosor del trazo">
+      <button class="lw-btn active" data-lw="2.835" title="Grosor de trazo de 1 mm">1 mm</button>
+      <button class="lw-btn"        data-lw="5.6693" title="Grosor de trazo de 2 mm">2 mm</button>
+    </div>
+
+    <div class="coord-hud" id="coordHUD"
+         aria-live="polite" aria-atomic="true">X: —     Y: —</div>
+
+  </header>
+
+  <main class="canvas-area">
+    <svg id="svgCanvas"
+         viewBox="0 0 141.7 141.7"
+         xmlns="http://www.w3.org/2000/svg"
+         role="img"
+         aria-label="Lienzo de dibujo de 50 mm × 50 mm">
+
+      <g id="backgroundTemplate"
+         style="pointer-events:none; user-select:none; -webkit-user-select:none;">
+
+        <polygon
+          points="141.9 141.9 14.3 141.9 .2 141.9 .2 .2 141.9 .2 141.9 14.5 141.9 141.9"
+          fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+
+        <circle cx="14.3"  cy="14.5"  r="5.8"
+                fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+        <circle cx="14.3"  cy="127.7" r="5.8"
+                fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+        <circle cx="127.7" cy="14.5"  r="5.8"
+                fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+        <circle cx="127.7" cy="127.7" r="5.8"
+                fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+
+        <circle cx="43.8"  cy="21.7"  r="1.4"
+                fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+        <circle cx="71"    cy="127.7" r="1.4"
+                fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+        <circle cx="101.4" cy="21.7"  r="1.4"
+                fill="#ffffff" stroke="#000000" stroke-width="1" stroke-miterlimit="10"/>
+
+      </g><g id="gridLayer"
+         style="display:none; pointer-events:none; user-select:none;"></g>
+
+      <g id="studentWorkspace"></g><g id="previewLayer" style="pointer-events:none;"></g></svg>
+  </main>
+
+  <footer class="controls-bar">
+    <div class="ctrl-group">
+      <button class="ctrl-btn btn-undo" id="btnUndo" title="Deshacer (Ctrl+Z)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7v6h6"/>
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+        </svg>
+        Deshacer
+      </button>
+      <button class="ctrl-btn btn-redo" id="btnRedo" disabled title="Rehacer (Ctrl+Y)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 7v6h-6"/>
+          <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
+        </svg>
+        Rehacer
+      </button>
+    </div>
+
+    <div class="ctrl-spacer"></div>
+
+    <div class="ctrl-group">
+      <button class="ctrl-btn btn-clear" id="btnClear" title="Borrar todos los dibujos del estudiante">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3,6 5,6 21,6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </svg>
+        Borrar todo
+      </button>
+      <button class="ctrl-btn btn-preview" id="btnPreview"
+              title="Vista previa de las líneas finales de corte láser — como la Vista de Contorno de Illustrator (O)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        Vista previa
+      </button>
+      <button class="ctrl-btn btn-download" id="btnDownload" title="Descargar SVG (50 mm × 50 mm)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7,10 12,15 17,10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Descargar SVG
+      </button>
+    </div>
+  </footer>
+
+  <div class="hint-strip">
+    <span class="hint-item"><kbd>Enter</kbd> confirmar trazo</span>
+    <span class="hint-item"><kbd>Esc</kbd> cancelar / revertir rotación</span>
+    <span class="hint-item"><kbd>Ctrl Z</kbd>/<kbd>Y</kbd> deshacer/rehacer</span>
+    <span class="hint-item"><kbd>Shift</kbd> ajuste de 15° (rotar)</span>
+    <span class="hint-item">
+      <kbd>P</kbd> curva &nbsp;
+      <kbd>L</kbd> línea &nbsp;
+      <kbd>S</kbd> cuad &nbsp;
+      <kbd>T</kbd> tri &nbsp;
+      <kbd>M</kbd> mover &nbsp;
+      <kbd>R</kbd> rotar &nbsp;
+      <kbd>G</kbd> cuadrícula
+    </span>
+    <span class="hint-item"><kbd>←↑↓→</kbd> mover selección (<kbd>Shift</kbd> ×5)</span>
+    <span class="hint-item" style="color:#14b8d4;">◎ pasa el cursor sobre los círculos para ajustar</span>
+    <span class="hint-item"><kbd>Del</kbd>/<kbd>Backspace</kbd> borrar selección</span>
+    <span class="hint-item"><kbd>O</kbd> vista previa láser (vista de contorno)</span>
+  </div>
+
+</div><script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────────
+   DOM REFERENCES
+   ───────────────────────────────────────────────────────────────────── */
+const svg          = document.getElementById('svgCanvas');
+const workspace    = document.getElementById('studentWorkspace');
+const previewLayer = document.getElementById('previewLayer');
+const gridLayer    = document.getElementById('gridLayer');
+const coordHUD     = document.getElementById('coordHUD');
+const btnUndo      = document.getElementById('btnUndo');
+const btnRedo      = document.getElementById('btnRedo');
+const btnGrid      = document.getElementById('btnGrid');
+const btnAlignH    = document.getElementById('btnAlignH');
+const btnAlignV    = document.getElementById('btnAlignV');
+const btnPreview   = document.getElementById('btnPreview');
+
+/* ─────────────────────────────────────────────────────────────────────
+   CONSTANTS
+   ─────────────────────────────────────────────────────────────────────
+   All spatial constants are in SVG logical units (= pt).
+   Canvas: 141.7 × 141.7 pt displayed at 400 × 400 px.
+   Scale:  400 / 141.7 ≈ 2.823 px per pt.
+
+   Visual target  →  px    →  pt
+   snap zone         ~10 px    ~3.5 pt  → SNAP_RADIUS = 5 (generous for small dots)
+   anchor dot r      ~4 px     ~1.4 pt  → 1.2 pt
+   snap ring r       ~8 px     ~2.8 pt  → 3 pt
+   rot handle hit    ~10 px    ~3.5 pt  → ROT_HIT_R  = 5 pt
+   ────────────────────────────────────────────────────────────────────── */
+const SVG_NS      = 'http://www.w3.org/2000/svg';
+const SNAP_RADIUS = 5;   /* pt — cursor snaps when within this distance */
+const ROT_HIT_R   = 5;   /* pt — click tolerance around the rotate handle */
+
+/*
+  Hard-coded centres of the 7 locked circles/dots from DefaultCanva.svg.
+  These are always active snap targets, regardless of what is drawn.
+  Coordinates exactly match the SVG element cx/cy attributes (in pt).
+  UPDATED: Now includes 'r' for laser perimeter projection.
+*/
+const BG_SNAP_POINTS = [
+  /* Four corner circles  (r = 5.8 pt) */
+  { x:  14.3, y:  14.5, r: 5.8 },   // top-left
+  { x:  14.3, y: 127.7, r: 5.8 },   // bottom-left
+  { x: 127.7, y:  14.5, r: 5.8 },   // top-right
+  { x: 127.7, y: 127.7, r: 5.8 },   // bottom-right
+  /* Three small indicator dots  (r = 1.4 pt) */
+  { x:  43.8, y:  21.7, r: 1.4 },   // top, ≈ 1/3 from left
+  { x:  71.0, y: 127.7, r: 1.4 },   // bottom centre
+  { x: 101.4, y:  21.7, r: 1.4 }    // top, ≈ 2/3 from left
+];
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   APPLICATION STATE
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 1 mm expressed in pt, since 1 SVG unit = 1 pt in this coordinate space
+   (1 mm = 72/25.4 pt ≈ 2.83465 pt). Shared by the stroke-width selector
+   and the laser-cut geometry optimizer below. */
+const MM_IN_PT = 72 / 25.4;
+
+let currentTool = 'pen-curve';
+
+/*
+  Current stroke width, stored in pt (1 SVG unit = 1 pt in this coordinate
+  space). The two selectable weights are defined in mm and converted to pt
+  so that every shape/pen line drawn on the canvas is at least 1 mm thick
+  — nothing thinner is offered.
+*/
+let strokeWidth = 1 * MM_IN_PT; /* 1 mm, the minimum offered weight */
+
+/* Undo / Redo */
+let redoStack = [];
+
+/* Shape-drag state (square / triangle) */
+let isDrawing   = false;
+let startX      = 0, startY = 0;
+let activeShape = null;
+
+/* Pen state */
+let penPoints     = [];
+let currentPathEl = null;
+let penPreviewLine = null;
+let penAnchorDots  = [];
+
+/* Snap */
+let snapIndicatorEl = null;
+
+/* Rotate */
+let selectedEl   = null;
+let rotOverlay   = null;
+let isRotating   = false;
+let rotCenter    = { x: 0, y: 0 };
+let rotBaseAngle = 0;
+let accRotation  = 0;
+
+/* Move */
+let isMovingObj = false;
+let moveStart   = { x: 0, y: 0 };   /* cursor at drag start (svg pt) */
+let moveOrig    = { tx: 0, ty: 0 }; /* element translate at drag start */
+
+/* Grid */
+let gridOn = false;
+
+/* HUD flash-message timer */
+let hudFlashTimer = null;
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   UTILITIES
+   ══════════════════════════════════════════════════════════════════════ */
+
+/** MouseEvent → SVG logical coordinates (pt). */
+function getSVGCoords(e) {
+  const rect = svg.getBoundingClientRect();
+  const vbW  = svg.viewBox.baseVal.width  || 141.7;
+  const vbH  = svg.viewBox.baseVal.height || 141.7;
+  return {
+    x: ((e.clientX - rect.left) / rect.width)  * vbW,
+    y: ((e.clientY - rect.top)  / rect.height) * vbH
+  };
+}
+
+/** Create a namespaced SVG element with an attribute map. */
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+/** Format a number to 2 decimal places. */
+const f = n => n.toFixed(2);
+
+/* ─────────────────────────────────────────────────────────────────────
+   UNIFIED ELEMENT TRANSFORM
+   ─────────────────────────────────────────────────────────────────────
+   Every workspace shape carries its transform state in dataset:
+     data-tx / data-ty     translation offset (pt), defaults 0
+     data-rot-angle        accumulated rotation (deg), defaults 0
+   The rendered SVG attribute is always composed in this fixed order:
+     translate(tx, ty) rotate(angle, cx, cy)
+   where (cx, cy) is the LOCAL (pre-transform) bbox centre.  This keeps
+   rotation pivoting on the shape itself no matter where it is moved.  */
+
+/** Read the element's translation offset from dataset. */
+function getTranslate(el) {
+  return {
+    tx: parseFloat(el.dataset.tx || '0'),
+    ty: parseFloat(el.dataset.ty || '0')
+  };
+}
+
+/** Recompose and write the transform attribute from dataset state. */
+function setElTransform(el) {
+  const { cx, cy } = elemCenter(el);          /* local bbox centre */
+  const { tx, ty } = getTranslate(el);
+  const a          = parseFloat(el.dataset.rotAngle || '0');
+  if (!tx && !ty && !a) { el.removeAttribute('transform'); return; }
+  el.setAttribute('transform',
+    `translate(${f(tx)},${f(ty)}) rotate(${f(a)},${f(cx)},${f(cy)})`);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   PATH GENERATORS
+   ══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * CATMULL-ROM → CUBIC BÉZIER
+ * CP1 = P[i]   + (P[i+1] − P[i−1]) / 6
+ * CP2 = P[i+1] − (P[i+2] − P[i]  ) / 6
+ * Boundary: phantom-duplicate first / last point.
+ */
+function catmullRomPath(pts) {
+  const n = pts.length;
+  if (n === 0) return '';
+  if (n === 1) return `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+  if (n === 2) return `M ${f(pts[0].x)} ${f(pts[0].y)} L ${f(pts[1].x)} ${f(pts[1].y)}`;
+  const p = [pts[0], ...pts, pts[n - 1]];
+  let d = `M ${f(p[1].x)} ${f(p[1].y)}`;
+  for (let i = 1; i < p.length - 2; i++) {
+    const { x: x0, y: y0 } = p[i - 1];
+    const { x: x1, y: y1 } = p[i];
+    const { x: x2, y: y2 } = p[i + 1];
+    const { x: x3, y: y3 } = p[i + 2];
+    const cp1x = x1 + (x2 - x0) / 6,  cp1y = y1 + (y2 - y0) / 6;
+    const cp2x = x2 - (x3 - x1) / 6,  cp2y = y2 - (y3 - y1) / 6;
+    d += ` C ${f(cp1x)},${f(cp1y)} ${f(cp2x)},${f(cp2y)} ${f(x2)},${f(y2)}`;
+  }
+  return d;
+}
+
+/** STRAIGHT LINE PEN — M … L … L … */
+function straightPenPath(pts) {
+  if (!pts.length) return '';
+  let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+  for (let i = 1; i < pts.length; i++) d += ` L ${f(pts[i].x)} ${f(pts[i].y)}`;
+  return d;
+}
+
+function buildPenPath(pts) {
+  return currentTool === 'pen-curve' ? catmullRomPath(pts) : straightPenPath(pts);
+}
+
+function syncCurrentPath() {
+  if (!currentPathEl || !penPoints.length) return;
+  currentPathEl.setAttribute('d', buildPenPath(penPoints));
+  currentPathEl.setAttribute('data-anchors', JSON.stringify(penPoints));
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   SHAPE STYLE FACTORY
+   ══════════════════════════════════════════════════════════════════════
+   Returns a fresh attribute object so strokeWidth is read at the moment
+   the shape is created, not at module load.
+   stroke-width: strokeWidth  →  literally "1 mm" or "2 mm" in the SVG
+   (stored/exported in pt, since 1 SVG unit = 1 pt here).                  */
+
+function shapeStyle() {
+  return {
+    fill:              'none',
+    stroke:            '#1a1a2c',
+    'stroke-width':    String(strokeWidth),
+    'stroke-linecap':  'round',
+    'stroke-linejoin': 'round',
+    'pointer-events':  'none'
+  };
+}
+function rectStyle() { return { ...shapeStyle(), fill: 'rgba(79,142,247,0.04)' }; }
+function polyStyle() { return { ...shapeStyle(), fill: 'rgba(79,142,247,0.04)' }; }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   SNAP SYSTEM
+   ══════════════════════════════════════════════════════════════════════
+
+   Snap priority (checked in order, first nearest wins):
+     1. BG_SNAP_POINTS — the 7 locked circles/dots in the template
+     2. studentWorkspace paths    (via data-anchors attribute)
+     3. studentWorkspace rects    (4 corners + 4 edge midpoints)
+     4. studentWorkspace polygons (all vertices)
+
+   Workspace points are transformed through the element's current
+   rotation so snapping remains accurate after shapes are rotated.        */
+
+/**
+ * Map a LOCAL point through the element's full transform
+ * (rotate around local centre, then translate).
+ * Keeps snapping accurate after shapes are rotated AND moved.
+ */
+function applyElemRotation(el, px, py) {
+  const { tx, ty } = getTranslate(el);
+  const t = el.getAttribute('transform') || '';
+  const m = t.match(/rotate\(\s*(-?[\d.]+)[,\s]+(-?[\d.]+)[,\s]+(-?[\d.]+)\s*\)/);
+  if (!m) return { x: px + tx, y: py + ty };
+  const rad = parseFloat(m[1]) * Math.PI / 180;
+  const cx  = parseFloat(m[2]), cy = parseFloat(m[3]);
+  const dx  = px - cx,          dy = py - cy;
+  return {
+    x: cx + dx * Math.cos(rad) - dy * Math.sin(rad) + tx,
+    y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) + ty
+  };
+}
+
+/** Collect all snap-worthy points in the scene (background + workspace). */
+function collectSnapPoints() {
+  /* Start with the always-active locked template circles */
+  const pts = BG_SNAP_POINTS.map(p => ({ ...p }));
+
+  for (const el of workspace.children) {
+    const tag = el.tagName.toLowerCase();
+    const raw = [];
+
+    if (tag === 'path') {
+      const stored = el.getAttribute('data-anchors');
+      if (stored) {
+        try { JSON.parse(stored).forEach(a => raw.push(a)); } catch (_) {}
+      } else {
+        const d   = el.getAttribute('d') || '';
+        const mM  = d.match(/M\s*(-?[\d.]+)[,\s]+(-?[\d.]+)/);
+        if (mM) raw.push({ x: parseFloat(mM[1]), y: parseFloat(mM[2]) });
+        const ns  = [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)];
+        if (ns.length) raw.push({ x: parseFloat(ns[ns.length-1][1]),
+                                   y: parseFloat(ns[ns.length-1][2]) });
+      }
+
+    } else if (tag === 'rect') {
+      const x = parseFloat(el.getAttribute('x')      || 0);
+      const y = parseFloat(el.getAttribute('y')      || 0);
+      const w = parseFloat(el.getAttribute('width')  || 0);
+      const h = parseFloat(el.getAttribute('height') || 0);
+      raw.push(
+        { x,       y       }, { x: x+w,   y       },
+        { x,       y: y+h  }, { x: x+w,   y: y+h  },
+        { x: x+w/2, y      }, { x: x+w/2, y: y+h  },
+        { x,       y:y+h/2 }, { x: x+w,   y:y+h/2 }
+      );
+
+    } else if (tag === 'polygon') {
+      const ps = el.getAttribute('points') || '';
+      for (const pair of ps.trim().split(/\s+/)) {
+        const [a, b] = pair.split(',');
+        const px = parseFloat(a), py = parseFloat(b);
+        if (!isNaN(px) && !isNaN(py)) raw.push({ x: px, y: py });
+      }
+    }
+
+    for (const pt of raw) pts.push(applyElemRotation(el, pt.x, pt.y));
+  }
+  return pts;
+}
+
+/**
+ * Find the nearest snap point within SNAP_RADIUS of (x, y).
+ * excludeLastAnchor=true prevents a just-placed pen anchor from being
+ * its own immediate snap target (allows closing a path to its start).
+ */
+function findSnap(x, y, excludeLastAnchor = false) {
+  let best = null, minDist = SNAP_RADIUS;
+  for (const pt of collectSnapPoints()) {
+    if (excludeLastAnchor && penPoints.length > 0) {
+      const lp = penPoints[penPoints.length - 1];
+      if (Math.hypot(pt.x - lp.x, pt.y - lp.y) < 0.1) continue;
+    }
+    const d = Math.hypot(pt.x - x, pt.y - y);
+    if (d < minDist) { minDist = d; best = pt; }
+  }
+
+  // NEW: Perimeter projection for laser cutting
+  if (best && best.r) {
+    // Project toward the last drawn point to ensure the line doesn't cross the interior.
+    // If it's the first point of a line, project toward the current mouse position.
+    let refX = x, refY = y;
+    if (penPoints.length > 0) {
+      refX = penPoints[penPoints.length - 1].x;
+      refY = penPoints[penPoints.length - 1].y;
+    }
+    const angle = Math.atan2(refY - best.y, refX - best.x);
+    return {
+      x: best.x + Math.cos(angle) * best.r,
+      y: best.y + Math.sin(angle) * best.r,
+      r: best.r
+    };
+  }
+  
+  return best;
+}
+
+/* ── Snap indicator (cyan crosshair + ring) ────────────────────────── */
+
+function ensureSnapIndicator() {
+  if (snapIndicatorEl) return snapIndicatorEl;
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.id = 'snapIndicator';
+  g.style.display = 'none';
+  /* Crosshair arms — ±4.5 pt ≈ ±12.7 px on screen */
+  g.appendChild(svgEl('line', { x1:'-4.5', y1:'0', x2:'4.5', y2:'0',
+    stroke:'#22d3ee', 'stroke-width':'0.4', opacity:'0.75' }));
+  g.appendChild(svgEl('line', { x1:'0', y1:'-4.5', x2:'0', y2:'4.5',
+    stroke:'#22d3ee', 'stroke-width':'0.4', opacity:'0.75' }));
+  /* Outer ring — r=3 pt ≈ 8.5 px */
+  g.appendChild(svgEl('circle', { r:'3',
+    fill:'none', stroke:'#22d3ee', 'stroke-width':'0.6' }));
+  /* Inner dot — r=0.9 pt ≈ 2.5 px */
+  g.appendChild(svgEl('circle', { r:'0.9', fill:'#22d3ee' }));
+  snapIndicatorEl = g;
+  previewLayer.appendChild(g);
+  return g;
+}
+
+function showSnap(x, y) {
+  const el = ensureSnapIndicator();
+  el.setAttribute('transform', `translate(${f(x)},${f(y)})`);
+  el.style.display = '';
+}
+function hideSnap() { if (snapIndicatorEl) snapIndicatorEl.style.display = 'none'; }
+
+/** Resolve drawing coordinates with optional snap. Returns { x, y, snapped }. */
+function drawCoords(e, excludeLastAnchor = false) {
+  const raw  = getSVGCoords(e);
+  const snap = findSnap(raw.x, raw.y, excludeLastAnchor);
+  if (snap) { showSnap(snap.x, snap.y); return { x: snap.x, y: snap.y, snapped: true }; }
+  hideSnap();
+  return { ...raw, snapped: false };
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   PEN TOOL — HELPERS
+   ══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Drop a blue anchor dot in the preview layer.
+ * r = 1.2 pt ≈ 3.4 px on screen.
+ */
+function addAnchorDot(x, y) {
+  const dot = svgEl('circle', {
+    cx: f(x), cy: f(y), r: '1.2',
+    fill: '#4f8ef7', stroke: '#ffffff', 'stroke-width': '0.45',
+    class: 'pen-anchor'
+  });
+  previewLayer.appendChild(dot);
+  penAnchorDots.push(dot);
+}
+
+/**
+ * Update the dashed preview line from the last anchor to the cursor.
+ * Dash: 1.8,1.4 pt ≈ 5,4 px — matches the visual weight of the old design.
+ */
+function refreshPreviewLine(x, y) {
+  if (!penPoints.length) return;
+  const last = penPoints[penPoints.length - 1];
+  if (!penPreviewLine) {
+    penPreviewLine = svgEl('line', {
+      stroke: '#4f8ef7', 'stroke-width': '0.5',
+      'stroke-dasharray': '1.8,1.4', opacity: '0.55',
+      class: 'pen-line'
+    });
+    previewLayer.appendChild(penPreviewLine);
+  }
+  penPreviewLine.setAttribute('x1', f(last.x));
+  penPreviewLine.setAttribute('y1', f(last.y));
+  penPreviewLine.setAttribute('x2', f(x));
+  penPreviewLine.setAttribute('y2', f(y));
+}
+
+/** Remove all pen-specific preview elements. */
+function clearPenPreview() {
+  previewLayer.querySelectorAll('.pen-anchor, .pen-line').forEach(e => e.remove());
+  penPreviewLine = null;
+  penAnchorDots  = [];
+}
+
+/**
+ * Commit the in-progress pen path.
+ * Degenerate single-point paths are discarded.
+ * Clears the redo stack (new committed shape invalidates it).
+ */
+function commitPenPath() {
+  clearPenPreview();
+  hideSnap();
+  if (currentPathEl) {
+    if (penPoints.length <= 1) currentPathEl.remove();
+    else                        invalidateRedo();
+    currentPathEl = null;
+  }
+  penPoints = [];
+  setHUD(null);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   ROTATE TOOL — HELPERS
+   ══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Return { cx, cy, bbox } for an element.
+ * getBBox() is in the element's local (pre-transform) coordinate space.
+ * Rotating around the bbox centre keeps it visually stationary.
+ */
+function elemCenter(el) {
+  const bb = el.getBBox();
+  return { cx: bb.x + bb.width / 2, cy: bb.y + bb.height / 2, bbox: bb };
+}
+
+/**
+ * Return the SVG-space position of the rotation handle.
+ *
+ * The handle is placed at (cx, bbox.y − 13) in local element space,
+ * then rotated by the element's accumulated angle around (cx, cy).
+ * 13 pt ≈ 36 px — comfortable clearance above the shape.
+ *
+ * @returns {{ hx, hy, cx, cy }}
+ */
+function handlePos(el) {
+  const { cx, cy, bbox } = elemCenter(el);
+  const { tx, ty } = getTranslate(el);
+  const angle = parseFloat(el.dataset.rotAngle || '0') * Math.PI / 180;
+  const lx = cx, ly = bbox.y - 13;   /* handle in local space */
+  const dx = lx - cx, dy = ly - cy;
+  /* Rotate around local centre, then translate → GLOBAL svg space */
+  return {
+    hx: cx + dx * Math.cos(angle) - dy * Math.sin(angle) + tx,
+    hy: cy + dx * Math.sin(angle) + dy * Math.cos(angle) + ty,
+    cx: cx + tx,
+    cy: cy + ty
+  };
+}
+
+/** true when (svgX, svgY) is within ROT_HIT_R pt of the rotation handle. */
+function isOnHandle(svgX, svgY) {
+  if (!selectedEl) return false;
+  const { hx, hy } = handlePos(selectedEl);
+  return Math.hypot(svgX - hx, svgY - hy) <= ROT_HIT_R;
+}
+
+/**
+ * Draw the selection + rotation overlay in the preview layer.
+ * The overlay group receives the same transform as the element so the
+ * dashed bbox and handle always track the rotated shape.
+ */
+function drawRotOverlay(el, showHandle = true) {
+  clearRotOverlay();
+  const { cx, cy, bbox } = elemCenter(el);
+  const { tx, ty } = getTranslate(el);
+  const angle = parseFloat(el.dataset.rotAngle || '0');
+  const pad   = 2;   /* 2 pt ≈ 5.6 px */
+
+  rotOverlay = document.createElementNS(SVG_NS, 'g');
+  rotOverlay.setAttribute('class', 'rot-overlay');
+  /* Same transform as the element → overlay always tracks the shape */
+  rotOverlay.setAttribute('transform',
+    `translate(${f(tx)},${f(ty)}) rotate(${f(angle)},${f(cx)},${f(cy)})`);
+
+  /* Dashed bounding rectangle */
+  rotOverlay.appendChild(svgEl('rect', {
+    x:      f(bbox.x - pad),
+    y:      f(bbox.y - pad),
+    width:  f(bbox.width  + 2 * pad),
+    height: f(bbox.height + 2 * pad),
+    fill: 'none', stroke: '#4f8ef7',
+    'stroke-width': '0.4', 'stroke-dasharray': '1.8,1.1', rx: '0.8'
+  }));
+
+  /* Centre pivot dot — r=1.1 pt ≈ 3.1 px */
+  rotOverlay.appendChild(svgEl('circle', {
+    cx: f(cx), cy: f(cy), r: '1.1',
+    fill: '#4f8ef7', opacity: '0.75'
+  }));
+
+  if (showHandle) {
+    /* Stem from padded bbox-top to base of handle */
+    rotOverlay.appendChild(svgEl('line', {
+      x1: f(cx), y1: f(bbox.y - pad),
+      x2: f(cx), y2: f(bbox.y - 10),
+      stroke: '#4f8ef7', 'stroke-width': '0.4', opacity: '0.55'
+    }));
+
+    /* Rotation handle circle — r=3 pt ≈ 8.5 px */
+    rotOverlay.appendChild(svgEl('circle', {
+      cx: f(cx), cy: f(bbox.y - 13), r: '3',
+      fill: '#ffffff', stroke: '#4f8ef7',
+      'stroke-width': '0.7', opacity: '0.97'
+    }));
+
+    /* ↻ symbol inside handle */
+    const txt = document.createElementNS(SVG_NS, 'text');
+    txt.setAttribute('x',           f(cx));
+    txt.setAttribute('y',           f(bbox.y - 11.4));  /* baseline offset */
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('font-size',   '4.5');
+    txt.setAttribute('font-weight', 'bold');
+    txt.setAttribute('fill',        '#4f8ef7');
+    txt.setAttribute('style',
+      'pointer-events:none; user-select:none; font-family:system-ui;');
+    txt.textContent = '↻';
+    rotOverlay.appendChild(txt);
+  }
+
+  previewLayer.appendChild(rotOverlay);
+}
+
+function clearRotOverlay() { if (rotOverlay) { rotOverlay.remove(); rotOverlay = null; } }
+
+/** Toggle pointer-events on workspace children for Rotate hit-testing. */
+function setWorkspaceEvents(mode) {
+  for (const child of workspace.children) child.setAttribute('pointer-events', mode);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   HUD  (coordinate / angle readout)
+   ══════════════════════════════════════════════════════════════════════
+   Coordinates shown in pt (= SVG units) to 1 decimal place.
+   This means the display reads "X: 14.3   Y: 14.5" when the cursor
+   is exactly on the top-left corner circle — intuitive feedback.          */
+
+function setHUD(coords, opts = {}) {
+  if (!coords) {
+    coordHUD.textContent = 'X: —     Y: —';
+    coordHUD.className   = 'coord-hud';
+    return;
+  }
+  /* Rotation mode — show angle instead of coordinates */
+  if (opts.angle !== undefined) {
+    const snapStr = opts.snapAngle ? '  [15°]' : '';
+    coordHUD.textContent = `\u2220 ${Math.round(opts.angle)}\u00B0${snapStr}`;
+    coordHUD.className   = 'coord-hud lit';
+    return;
+  }
+  const isPen  = currentTool === 'pen-curve' || currentTool === 'pen-straight';
+  const ptSufx = isPen && penPoints.length > 0
+    ? `   \u00B7 ${penPoints.length} pto${penPoints.length !== 1 ? 's' : ''}`
+    : '';
+  const snapMk = opts.snapped ? '  \u25CE' : '';  /* ◎ snap active */
+  coordHUD.textContent =
+    `X: ${coords.x.toFixed(1)}   Y: ${coords.y.toFixed(1)}${ptSufx}${snapMk}`;
+  coordHUD.className = opts.snapped ? 'coord-hud snap' : 'coord-hud lit';
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   UNDO / REDO
+   ══════════════════════════════════════════════════════════════════════ */
+
+function invalidateRedo() { redoStack = []; btnRedo.disabled = true; }
+
+/**
+ * Undo priority:
+ * 1. Cancel in-progress drag shape
+ * 2. Cancel in-progress pen path
+ * 3. Remove last committed element → push to redoStack
+ */
+function doUndo() {
+  if (previewOn) exitLaserPreview();
+  if (isDrawing && activeShape) {
+    activeShape.remove(); isDrawing = false; activeShape = null; return;
+  }
+  if (currentPathEl) {
+    currentPathEl.remove(); clearPenPreview(); hideSnap();
+    currentPathEl = null; penPoints = []; setHUD(null); return;
+  }
+  const last = workspace.lastElementChild;
+  if (!last) return;
+  workspace.removeChild(last);
+  redoStack.push(last);
+  btnRedo.disabled = false;
+  if (selectedEl === last) { selectedEl = null; clearRotOverlay(); }
+}
+
+/** Re-append the most recently undone element. */
+function doRedo() {
+  if (previewOn) exitLaserPreview();
+  if (!redoStack.length) return;
+  const el = redoStack.pop();
+  el.setAttribute('pointer-events',
+    (currentTool === 'rotate' || currentTool === 'move') ? 'all' : 'none');
+  workspace.appendChild(el);
+  btnRedo.disabled = redoStack.length === 0;
+}
+
+btnUndo.addEventListener('click', doUndo);
+btnRedo.addEventListener('click', doRedo);
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   STROKE WIDTH SELECTOR
+   ══════════════════════════════════════════════════════════════════════ */
+
+document.querySelectorAll('.lw-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    strokeWidth = parseFloat(btn.dataset.lw);
+    document.querySelectorAll('.lw-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.lw === btn.dataset.lw);
+    });
+  });
+});
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   TOOL SELECTION
+   ══════════════════════════════════════════════════════════════════════ */
+
+function selectTool(tool) {
+  if (previewOn) exitLaserPreview();
+
+  const wasPen    = currentTool === 'pen-curve' || currentTool === 'pen-straight';
+  const isPenNow  = tool === 'pen-curve' || tool === 'pen-straight';
+  const wasSelect = currentTool === 'rotate' || currentTool === 'move';
+  const isSelect  = tool === 'rotate' || tool === 'move';
+
+  if (wasPen && !isPenNow)         commitPenPath();
+  if (isDrawing && activeShape)    { activeShape.remove(); isDrawing = false; activeShape = null; }
+  if (wasSelect && !isSelect)      { selectedEl = null; clearRotOverlay(); setWorkspaceEvents('none'); isRotating = false; isMovingObj = false; svg.style.cursor = 'crosshair'; }
+  if (isSelect  && !wasSelect)     { setWorkspaceEvents('all'); svg.style.cursor = 'default'; }
+  /* Rotate ⇄ Move: keep the selection, just swap the overlay style */
+  if (wasSelect && isSelect && selectedEl) {
+    isRotating = false; isMovingObj = false;
+    drawRotOverlay(selectedEl, tool === 'rotate');
+  }
+
+  currentTool = tool;
+  /* Only buttons carrying data-tool participate in the exclusive
+     active state — Grid / Center H / Center V manage their own. */
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
+    b.classList.toggle('active', b.dataset.tool === tool);
+  });
+}
+
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => selectTool(btn.dataset.tool));
+});
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   SVG MOUSE EVENTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── mousedown ──────────────────────────────────────────────────────── */
+svg.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  if (previewOn) { exitLaserPreview(); return; }
+
+  /* ═══ ROTATE ═══════════════════════════════════════════════════════ */
+  if (currentTool === 'rotate') {
+    const { x, y } = getSVGCoords(e);
+    if (selectedEl && isOnHandle(x, y)) {
+      isRotating = true;
+      const { cx, cy } = handlePos(selectedEl);
+      rotCenter    = { x: cx, y: cy };
+      rotBaseAngle = Math.atan2(y - cy, x - cx) * 180 / Math.PI;
+      accRotation  = parseFloat(selectedEl.dataset.rotAngle || '0');
+      svg.style.cursor = 'grabbing';
+      return;
+    }
+    let node = e.target, pick = null;
+    while (node && node !== svg) {
+      if (node.parentElement === workspace) { pick = node; break; }
+      node = node.parentElement;
+    }
+    if (pick) {
+      selectedEl = pick;
+      if (!selectedEl.dataset.rotAngle) selectedEl.dataset.rotAngle = '0';
+      drawRotOverlay(selectedEl);
+    } else { selectedEl = null; clearRotOverlay(); }
+    return;
+  }
+
+  /* ═══ MOVE ═══════════════════════════════════════════════════════════ */
+  if (currentTool === 'move') {
+    const { x, y } = getSVGCoords(e);
+    let node = e.target, pick = null;
+    while (node && node !== svg) {
+      if (node.parentElement === workspace) { pick = node; break; }
+      node = node.parentElement;
+    }
+    if (pick) {
+      selectedEl = pick;
+      if (!selectedEl.dataset.rotAngle) selectedEl.dataset.rotAngle = '0';
+      isMovingObj = true;
+      moveStart   = { x, y };
+      moveOrig    = getTranslate(selectedEl);
+      drawRotOverlay(selectedEl, false);
+      svg.style.cursor = 'grabbing';
+    } else { selectedEl = null; clearRotOverlay(); }
+    return;
+  }
+
+  /* ═══ PEN TOOLS ══════════════════════════════════════════════════════ */
+  const isPen = currentTool === 'pen-curve' || currentTool === 'pen-straight';
+  if (isPen) {
+    const { x, y, snapped } = drawCoords(e, true);
+    penPoints.push({ x, y });
+    addAnchorDot(x, y);
+    if (penPoints.length === 1) {
+      currentPathEl = svgEl('path', {
+        d: `M ${f(x)} ${f(y)}`,
+        ...shapeStyle(),
+        'data-anchors': JSON.stringify([{ x, y }])
+      });
+      workspace.appendChild(currentPathEl);
+    } else {
+      syncCurrentPath();
+    }
+    refreshPreviewLine(x, y);
+    setHUD({ x, y }, { snapped });
+    return;
+  }
+
+  /* ═══ SQUARE / TRIANGLE ══════════════════════════════════════════════ */
+  const { x, y } = drawCoords(e);
+  isDrawing = true; startX = x; startY = y;
+  if (currentTool === 'square') {
+    activeShape = svgEl('rect', { x: f(x), y: f(y), width: '0', height: '0', ...rectStyle() });
+  } else if (currentTool === 'triangle') {
+    activeShape = svgEl('polygon', {
+      points: `${f(x)},${f(y)} ${f(x)},${f(y)} ${f(x)},${f(y)}`,
+      ...polyStyle()
+    });
+  }
+  if (activeShape) workspace.appendChild(activeShape);
+});
+
+
+/* ── mousemove ──────────────────────────────────────────────────────── */
+svg.addEventListener('mousemove', e => {
+
+  /* ═══ ROTATE ═════════════════════════════════════════════════════════ */
+  if (currentTool === 'rotate') {
+    const { x, y } = getSVGCoords(e);
+    if (isRotating && selectedEl) {
+      const curAngle  = Math.atan2(y - rotCenter.y, x - rotCenter.x) * 180 / Math.PI;
+      let   newAngle  = accRotation + (curAngle - rotBaseAngle);
+      const snapAngle = e.shiftKey;
+      if (snapAngle) newAngle = Math.round(newAngle / 15) * 15;
+      selectedEl.dataset.rotAngle = String(newAngle);
+      setElTransform(selectedEl);          /* keeps any translate offset */
+      drawRotOverlay(selectedEl);
+      setHUD({ x, y }, { angle: newAngle, snapAngle });
+      svg.style.cursor = 'grabbing';
+      return;
+    }
+    /* Cursor feedback */
+    if (selectedEl && isOnHandle(x, y)) {
+      svg.style.cursor = 'grab';
+    } else {
+      let overShape = false, node = e.target;
+      while (node && node !== svg) {
+        if (node.parentElement === workspace) { overShape = true; break; }
+        node = node.parentElement;
+      }
+      svg.style.cursor = overShape ? 'pointer' : 'default';
+    }
+    setHUD({ x, y });
+    return;
+  }
+
+  /* ═══ MOVE ═══════════════════════════════════════════════════════════ */
+  if (currentTool === 'move') {
+    const { x, y } = getSVGCoords(e);
+    if (isMovingObj && selectedEl) {
+      let dx = x - moveStart.x;
+      let dy = y - moveStart.y;
+      /* Shift = constrain to the dominant axis */
+      if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
+      selectedEl.dataset.tx = String(moveOrig.tx + dx);
+      selectedEl.dataset.ty = String(moveOrig.ty + dy);
+      setElTransform(selectedEl);
+      drawRotOverlay(selectedEl, false);
+      setHUD({ x, y });
+      svg.style.cursor = 'grabbing';
+      return;
+    }
+    /* Cursor feedback: grab over a shape, default elsewhere */
+    let overShape = false, node = e.target;
+    while (node && node !== svg) {
+      if (node.parentElement === workspace) { overShape = true; break; }
+      node = node.parentElement;
+    }
+    svg.style.cursor = overShape ? 'grab' : 'default';
+    setHUD({ x, y });
+    return;
+  }
+
+  /* ═══ PEN ════════════════════════════════════════════════════════════ */
+  const isPen = currentTool === 'pen-curve' || currentTool === 'pen-straight';
+  if (isPen) {
+    const { x, y, snapped } = drawCoords(e, true);
+    setHUD({ x, y }, { snapped });
+    if (penPoints.length > 0) refreshPreviewLine(x, y);
+    return;
+  }
+
+  /* ═══ SQUARE / TRIANGLE ══════════════════════════════════════════════ */
+  const { x, y, snapped } = drawCoords(e);
+  setHUD({ x, y }, { snapped });
+  if (!isDrawing || !activeShape) return;
+
+  if (currentTool === 'square') {
+    /* Equal sides: size = max(|dx|, |dy|); handle all drag directions */
+    const dx = x - startX, dy = y - startY;
+    const sz = Math.max(Math.abs(dx), Math.abs(dy));
+    activeShape.setAttribute('x',      f(dx < 0 ? startX - sz : startX));
+    activeShape.setAttribute('y',      f(dy < 0 ? startY - sz : startY));
+    activeShape.setAttribute('width',  f(sz));
+    activeShape.setAttribute('height', f(sz));
+  } else if (currentTool === 'triangle') {
+    /* mid-top peak, bottom-left, bottom-right */
+    activeShape.setAttribute('points',
+      `${f((startX+x)/2)},${f(startY)} ${f(startX)},${f(y)} ${f(x)},${f(y)}`);
+  }
+});
+
+
+/* ── mouseup ────────────────────────────────────────────────────────── */
+svg.addEventListener('mouseup', e => {
+  if (currentTool === 'rotate') {
+    if (isRotating) {
+      isRotating = false;
+      const pos = getSVGCoords(e);
+      svg.style.cursor = isOnHandle(pos.x, pos.y) ? 'grab' : 'default';
+    }
+    return;
+  }
+  if (currentTool === 'move') {
+    if (isMovingObj) { isMovingObj = false; svg.style.cursor = 'grab'; }
+    return;
+  }
+  if (isDrawing) {
+    isDrawing = false;
+    if (activeShape) { invalidateRedo(); hideSnap(); }
+    activeShape = null;
+  }
+});
+
+
+/* ── mouseleave ─────────────────────────────────────────────────────── */
+svg.addEventListener('mouseleave', () => {
+  setHUD(null); hideSnap();
+  if (isDrawing)   { isDrawing   = false; activeShape = null; }
+  if (isRotating)  { isRotating  = false; svg.style.cursor = 'default'; }
+  if (isMovingObj) { isMovingObj = false; svg.style.cursor = 'default'; }
+});
+
+svg.addEventListener('contextmenu', e => e.preventDefault());
+svg.addEventListener('dragstart',   e => e.preventDefault());
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+document.addEventListener('keydown', e => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+  switch (e.key) {
+
+    case 'Enter':
+      if (currentTool === 'pen-curve' || currentTool === 'pen-straight') {
+        e.preventDefault(); commitPenPath();
+      }
+      break;
+
+    case 'Escape':
+      e.preventDefault();
+      if (previewOn) { exitLaserPreview(); break; }
+      if (currentTool === 'rotate') {
+        if (isRotating) {
+          /* Revert to the pre-drag rotation */
+          isRotating = false;
+          selectedEl.dataset.rotAngle = String(accRotation);
+          setElTransform(selectedEl);
+          drawRotOverlay(selectedEl);
+        } else { selectedEl = null; clearRotOverlay(); }
+      } else if (currentTool === 'move') {
+        if (isMovingObj && selectedEl) {
+          /* Revert to the pre-drag position */
+          isMovingObj = false;
+          selectedEl.dataset.tx = String(moveOrig.tx);
+          selectedEl.dataset.ty = String(moveOrig.ty);
+          setElTransform(selectedEl);
+          drawRotOverlay(selectedEl, false);
+          svg.style.cursor = 'default';
+        } else { selectedEl = null; clearRotOverlay(); }
+      } else if (isDrawing && activeShape) {
+        activeShape.remove(); isDrawing = false; activeShape = null;
+      } else if (currentPathEl) {
+        currentPathEl.remove(); clearPenPreview(); hideSnap();
+        currentPathEl = null; penPoints = []; setHUD(null);
+      }
+      break;
+
+    /* ── NEW FEATURE: Erase Selection via Keyboard ───────────────────── */
+    case 'Backspace':
+    case 'Delete':
+      if ((currentTool === 'rotate' || currentTool === 'move') && selectedEl) {
+        e.preventDefault();
+        selectedEl.remove();
+        selectedEl = null;
+        clearRotOverlay();
+        svg.style.cursor = 'default';
+        invalidateRedo(); 
+      }
+      break;
+    /* ────────────────────────────────────────────────────────────────── */
+
+    case 'z': case 'Z':
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        /* Ctrl+Shift+Z → Redo;  Ctrl+Z → Undo */
+        if (e.shiftKey) doRedo(); else doUndo();
+      }
+      break;
+
+    case 'y': case 'Y':
+      if (e.ctrlKey || e.metaKey) { e.preventDefault(); doRedo(); }
+      break;
+
+    case 'p': case 'P': selectTool('pen-curve');   break;
+    case 'l': case 'L': selectTool('pen-straight'); break;
+    case 's': case 'S': if (!e.ctrlKey && !e.metaKey) selectTool('square');   break;
+    case 't': case 'T': selectTool('triangle'); break;
+    case 'm': case 'M': selectTool('move');     break;
+    case 'r': case 'R': if (!e.ctrlKey && !e.metaKey) selectTool('rotate');   break;
+    case 'g': case 'G': if (!e.ctrlKey && !e.metaKey) toggleGrid();           break;
+    case 'o': case 'O': if (!e.ctrlKey && !e.metaKey) toggleLaserPreview();   break;
+
+    /* Arrow keys nudge the current selection (Move / Rotate tools).
+       1 pt per press, 5 pt with Shift. */
+    case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': {
+      if (!selectedEl || !selectedEl.isConnected) break;
+      if (currentTool !== 'move' && currentTool !== 'rotate') break;
+      e.preventDefault();
+      const step = e.shiftKey ? 5 : 1;
+      const { tx, ty } = getTranslate(selectedEl);
+      if (e.key === 'ArrowLeft')  selectedEl.dataset.tx = String(tx - step);
+      if (e.key === 'ArrowRight') selectedEl.dataset.tx = String(tx + step);
+      if (e.key === 'ArrowUp')    selectedEl.dataset.ty = String(ty - step);
+      if (e.key === 'ArrowDown')  selectedEl.dataset.ty = String(ty + step);
+      setElTransform(selectedEl);
+      drawRotOverlay(selectedEl, currentTool === 'rotate');
+      break;
+    }
+  }
+});
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   ALIGNMENT GRID
+   ══════════════════════════════════════════════════════════════════════
+   Built from the LIVE viewBox, so line count and spacing adapt to any
+   canvas size ("responsive").  Layout for the default 141.7 pt canvas:
+     · minor lines every 1/20 of the canvas  (2.5 mm)  — very light
+     · major lines every 1/10 of the canvas  (5 mm)    — light
+     · centre axis lines at 1/2               (25 mm)  — dashed accent
+   The layer sits under all drawings, ignores the mouse, and is
+   stripped from the exported SVG.                                        */
+
+function buildGrid() {
+  while (gridLayer.firstChild) gridLayer.removeChild(gridLayer.firstChild);
+  const vbW = svg.viewBox.baseVal.width  || 141.7;
+  const vbH = svg.viewBox.baseVal.height || 141.7;
+  const DIV = 20;                       /* minor divisions per axis */
+
+  const line = (x1, y1, x2, y2, style) =>
+    gridLayer.appendChild(svgEl('line', { x1: f(x1), y1: f(y1), x2: f(x2), y2: f(y2), ...style }));
+
+  const styleFor = i => {
+    if (i === DIV / 2)                  /* centre axis */
+      return { stroke: '#4f8ef7', 'stroke-width': '0.35',
+               'stroke-dasharray': '2.4,1.6', opacity: '0.55' };
+    if (i % 2 === 0)                    /* major (every 5 mm) */
+      return { stroke: '#aeb9cc', 'stroke-width': '0.28', opacity: '0.55' };
+    return   { stroke: '#c9d2e0', 'stroke-width': '0.2',  opacity: '0.45' };
+  };
+
+  for (let i = 1; i < DIV; i++) {
+    line((i / DIV) * vbW, 0, (i / DIV) * vbW, vbH, styleFor(i));  /* vertical   */
+    line(0, (i / DIV) * vbH, vbW, (i / DIV) * vbH, styleFor(i));  /* horizontal */
+  }
+}
+buildGrid();
+
+function toggleGrid() {
+  if (previewOn) exitLaserPreview();
+  gridOn = !gridOn;
+  if (gridOn) buildGrid();              /* rebuild → always matches viewBox */
+  gridLayer.style.display = gridOn ? '' : 'none';
+  btnGrid.classList.toggle('active', gridOn);
+}
+btnGrid.addEventListener('click', toggleGrid);
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   ALIGN TO CANVAS CENTRE
+   ══════════════════════════════════════════════════════════════════════
+   Works on the shape currently selected with the Move or Rotate tool.
+   Because rotation always pivots on the shape's own local centre, the
+   shape's GLOBAL centre is simply (local centre + translate) regardless
+   of its angle — so centring is a pure translate adjustment.             */
+
+/** Show a temporary message in the coordinate HUD. */
+function flashHUD(msg) {
+  clearTimeout(hudFlashTimer);
+  coordHUD.textContent = msg;
+  coordHUD.className   = 'coord-hud lit';
+  hudFlashTimer = setTimeout(() => setHUD(null), 1800);
+}
+
+function alignSelectedToCenter(axis /* 'h' | 'v' */) {
+  if (!selectedEl || !selectedEl.isConnected) {
+    flashHUD('Selecciona una figura (Mover/Rotar)');
+    return;
+  }
+  const { cx, cy } = elemCenter(selectedEl);          /* local centre */
+  const vbW = svg.viewBox.baseVal.width  || 141.7;
+  const vbH = svg.viewBox.baseVal.height || 141.7;
+  if (!selectedEl.dataset.rotAngle) selectedEl.dataset.rotAngle = '0';
+  if (axis === 'h') selectedEl.dataset.tx = String(vbW / 2 - cx);
+  else              selectedEl.dataset.ty = String(vbH / 2 - cy);
+  setElTransform(selectedEl);
+  drawRotOverlay(selectedEl, currentTool === 'rotate');
+  flashHUD(axis === 'h' ? 'Centrado en el eje X' : 'Centrado en el eje Y');
+}
+
+btnAlignH.addEventListener('click', () => alignSelectedToCenter('h'));
+btnAlignV.addEventListener('click', () => alignSelectedToCenter('v'));
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   CLEAR ALL
+   ══════════════════════════════════════════════════════════════════════ */
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  if (previewOn) exitLaserPreview();
+  clearPenPreview(); clearRotOverlay(); hideSnap();
+  currentPathEl = null; penPoints     = [];
+  isDrawing     = false; activeShape   = null;
+  selectedEl    = null; isRotating    = false;
+  isMovingObj   = false;
+  redoStack     = []; btnRedo.disabled = true;
+  setHUD(null);
+  while (workspace.firstChild) workspace.removeChild(workspace.firstChild);
+});
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   LASER-CUT GEOMETRY OPTIMIZER
+   ══════════════════════════════════════════════════════════════════════
+   Runs by DEFAULT on a detached copy of the drawing every time the file
+   is downloaded (see DOWNLOAD SVG below). It never touches the live,
+   editable canvas — only the exported copy — so students can keep
+   iterating on their original anchors after downloading.
+
+   IMPORTANT — why this exists:
+   A laser follows a vector PATH, not a stroke-width attribute. Every
+   laser program (LightBurn included) treats an SVG line as an infinitely
+   thin toolpath and cuts a single kerf-width groove along it — the
+   on-screen "1 mm" / "2 mm" pen weight is a display convenience only and
+   is silently discarded on import, which is exactly what you ran into.
+   The only way to make a line's width survive into the cut file is to
+   turn it into real GEOMETRY: two parallel edges (and, for a closed
+   shape, an inner + outer contour) that are actually stroke-width apart.
+   That is what phase 5 below does, so every 1 mm / 2 mm line becomes an
+   actual 1 mm / 2 mm slot when LightBurn cuts along BOTH of its edges.
+
+   What it does, in order:
+     1. DEDUPE      — drops accidental duplicate anchors on a single path
+                       (double-clicks, shaky hand) that would otherwise
+                       cut the same sub-millimetre segment twice.
+     2. WELD JOINTS  — clusters every path/rect/polygon vertex in the
+                       drawing and snaps clusters together within a
+                       kerf-scale tolerance, so adjoining edges meet with
+                       zero gap and zero overlap. Rects and polygons are
+                       precise by construction, so they act as fixed pins;
+                       only hand-drawn pen-path anchors are ever moved.
+     3. AUTO-CLOSE   — if a pen path's start and end anchors are already
+                       touching (within the same tolerance), it is sealed
+                       into a true closed contour instead of being left
+                       as a hairline-gap "almost closed" shape.
+     4. SHARP CORNERS — re-examines every anchor on a pen-CURVE path; any
+                       anchor where the path turns sharply (a joint tooth,
+                       a box corner, …) is flattened as a hard corner with
+                       zero curve tangent on both sides, instead of the
+                       Catmull-Rom spline rounding/ballooning through it.
+     5. JOIN TRACES  — PEN PATHS ONLY, the "boolean-like" merge. Before
+                       offsetting, paths whose free ends were welded
+                       together in step 2 are walked into ONE continuous
+                       centerline — so a corner built from several
+                       separate strokes gets ONE smooth offset outline
+                       through it, using the same miter/bevel math a
+                       single hand-drawn corner already gets, instead of
+                       independently-capped bands that merely touch (and
+                       whose near-duplicate cap edges are exactly the
+                       classic hard case for general polygon booleans —
+                       see mergeLaserChains() for the full reasoning).
+                       Only simple two-way joints merge this way; a point
+                       where 3+ strokes meet is left as independent
+                       strokes rather than risk incorrect geometry there.
+     6. TRUE-WIDTH BAND — the cleaned/merged centerline (flattened to a
+                       dense polyline for curves) is offset by ±half the
+                       line's stroke-width to build its actual physical
+                       outline:
+                         • an OPEN line becomes a rounded-end "capsule"
+                           outline (one closed loop — cut it and the whole
+                           strip drops free).
+                         • a CLOSED loop becomes an outer + inner contour
+                           pair — cutting both frees the ring/slot
+                           between them.
+                       Each resulting outline then gets a final pass that
+                       drops near-collinear points (simplifyContour) —
+                       the "simplified and smooth" trace this was for.
+                       The result is written as a plain hairline-stroke
+                       path, so it drops into LightBurn exactly like any
+                       other vector cut layer — just select it and Cut.
+                       Squares and triangles are NOT put through any of
+                       this — they're already precise, parametric shapes,
+                       so they're simply kept as drawn (fill:none /
+                       stroke:#000), exactly like before this feature
+                       existed.
+   Tune the constants below to match your laser's kerf / your students'
+   drawing precision.                                                    */
+
+const LASER_OPT = {
+  weldEps:            0.15 * MM_IN_PT,  /* joints within this gap are welded    (~kerf scale)   */
+  dupEps:             0.05 * MM_IN_PT,  /* consecutive anchors this close are treated as 1 point */
+  cornerAngleDeg:     150,              /* interior angle below this = hard corner, not smoothed */
+  curveSamplesPerSeg: 14,               /* flatness of curve→polyline sampling before offsetting */
+  capSegments:        10,               /* smoothness of the rounded end-cap on open lines        */
+  miterLimit:         4,                /* corner miter longer than this (×half-width) bevels instead */
+  exportStrokePt:     0.3,              /* cosmetic hairline width for the exported outline paths */
+  simplifyAngleDeg:   179               /* final-pass cleanup: drop points straighter than this    */
+};
+
+/** Straight-line distance between two {x,y} points. */
+function laserDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+/** Unit vector from (0,0) toward (x,y); degenerate-safe. */
+function laserUnit(x, y) { const l = Math.hypot(x, y) || 1e-9; return { x: x / l, y: y / l }; }
+
+/** Interior angle in degrees at `cur`, formed by prev→cur→next. 180° = dead straight. */
+function laserInteriorAngle(prev, cur, next) {
+  const v1x = cur.x - prev.x, v1y = cur.y - prev.y;
+  const v2x = next.x - cur.x, v2y = next.y - cur.y;
+  const l1  = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+  if (l1 < 1e-6 || l2 < 1e-6) return 180;
+  const cos = Math.max(-1, Math.min(1, (v1x * v2x + v1y * v2y) / (l1 * l2)));
+  return 180 - (Math.acos(cos) * 180 / Math.PI);
+}
+
+/**
+ * Inverse of applyElemRotation(): maps a GLOBAL point back into an
+ * element's LOCAL (pre-transform) space, undoing translate(tx,ty) then
+ * rotate(angle,cx,cy). Needed to write welded joint positions back onto
+ * a moved/rotated path without corrupting its on-canvas placement.
+ */
+function invApplyElemRotation(el, gx, gy) {
+  const { tx, ty } = getTranslate(el);
+  const t = el.getAttribute('transform') || '';
+  const m = t.match(/rotate\(\s*(-?[\d.]+)[,\s]+(-?[\d.]+)[,\s]+(-?[\d.]+)\s*\)/);
+  const qx = gx - tx, qy = gy - ty;
+  if (!m) return { x: qx, y: qy };
+  const rad = parseFloat(m[1]) * Math.PI / 180;
+  const cx  = parseFloat(m[2]), cy = parseFloat(m[3]);
+  const dx  = qx - cx, dy = qy - cy;
+  return {
+    x: cx + dx * Math.cos(-rad) - dy * Math.sin(-rad),
+    y: cy + dx * Math.sin(-rad) + dy * Math.cos(-rad)
+  };
+}
+
+/**
+ * Corner-aware Catmull-Rom → dense polyline (curve flattening).
+ * Same tangent math as the on-screen spline, but any index flagged in
+ * `hard` (including both open ends) is treated as a spline boundary —
+ * zero in/out tangent — so the flattened line arrives at and leaves that
+ * anchor dead straight instead of rounding through it. The dense output
+ * is what actually gets offset into a band in buildBandContours().
+ */
+function flattenCornerCurve(pts, hard, samplesPerSeg) {
+  const n = pts.length;
+  if (n < 2) return pts.slice();
+  const dense = [pts[0]];
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[i], p1 = pts[i + 1];
+    const before = (i === 0         || hard[i])    ? p0 : pts[i - 1];
+    const after  = (i + 1 === n - 1 || hard[i + 1]) ? p1 : pts[i + 2];
+    const cp1x = p0.x + (p1.x - before.x) / 6, cp1y = p0.y + (p1.y - before.y) / 6;
+    const cp2x = p1.x - (after.x  - p0.x) / 6, cp2y = p1.y - (after.y  - p0.y) / 6;
+    for (let t = 1; t <= samplesPerSeg; t++) {
+      const s = t / samplesPerSeg, u = 1 - s;
+      dense.push({
+        x: u*u*u*p0.x + 3*u*u*s*cp1x + 3*u*s*s*cp2x + s*s*s*p1.x,
+        y: u*u*u*p0.y + 3*u*u*s*cp1y + 3*u*s*s*cp2y + s*s*s*p1.y
+      });
+    }
+  }
+  return dense;
+}
+
+/** Per-segment left-hand unit normals of a polyline. `closed` includes the wrap-around edge. */
+function laserSegNormals(pts, closed) {
+  const n = pts.length, normals = [];
+  const count = closed ? n : n - 1;
+  for (let i = 0; i < count; i++) {
+    const j = (i + 1) % n;
+    const dx = pts[j].x - pts[i].x, dy = pts[j].y - pts[i].y;
+    const len = Math.hypot(dx, dy) || 1e-9;
+    normals.push({ x: -dy / len, y: dx / len });
+  }
+  return normals;
+}
+
+/** Offset one interior vertex by `dist`, mitering the two adjacent normals (or bevelling past miterLimit). */
+function laserOffsetJoin(pt, n0, n1, dist, out) {
+  let mx = n0.x + n1.x, my = n0.y + n1.y;
+  const mlen = Math.hypot(mx, my);
+  if (mlen < 1e-6) {                                    // ~180° reversal — degenerate, just bevel
+    out.push({ x: pt.x + n0.x * dist, y: pt.y + n0.y * dist });
+    out.push({ x: pt.x + n1.x * dist, y: pt.y + n1.y * dist });
+    return;
+  }
+  mx /= mlen; my /= mlen;
+  const cosHalf    = n0.x * mx + n0.y * my;
+  const miterScale = 1 / Math.max(cosHalf, 1e-3);
+  if (miterScale > LASER_OPT.miterLimit) {                // spike too long — bevel instead
+    out.push({ x: pt.x + n0.x * dist, y: pt.y + n0.y * dist });
+    out.push({ x: pt.x + n1.x * dist, y: pt.y + n1.y * dist });
+  } else {
+    out.push({ x: pt.x + mx * dist * miterScale, y: pt.y + my * dist * miterScale });
+  }
+}
+
+/** Offset an OPEN polyline by `dist` (mitered interior joins, no cap at the two ends). */
+function laserOffsetOpen(pts, dist) {
+  const n = pts.length;
+  if (n < 2) return pts.slice();
+  const normals = laserSegNormals(pts, false);
+  const out = [{ x: pts[0].x + normals[0].x * dist, y: pts[0].y + normals[0].y * dist }];
+  for (let i = 1; i < n - 1; i++) laserOffsetJoin(pts[i], normals[i - 1], normals[i], dist, out);
+  out.push({ x: pts[n-1].x + normals[n-2].x * dist, y: pts[n-1].y + normals[n-2].y * dist });
+  return out;
+}
+
+/** Offset a CLOSED polyline (loop, wrap-around join at every vertex) by `dist`. */
+function laserOffsetClosed(pts, dist) {
+  const n = pts.length;
+  const normals = laserSegNormals(pts, true);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    laserOffsetJoin(pts[i], normals[(i - 1 + n) % n], normals[i], dist, out);
+  }
+  return out;
+}
+
+/** Interior arc points (excludes both endpoints) of a half-circle round cap. */
+function laserCapArc(center, normal, outDir, radius, segments) {
+  const pts = [];
+  for (let t = 1; t < segments; t++) {
+    const ang = (t / segments) * Math.PI, c = Math.cos(ang), s = Math.sin(ang);
+    pts.push({ x: center.x + radius * (normal.x * c + outDir.x * s),
+               y: center.y + radius * (normal.y * c + outDir.y * s) });
+  }
+  return pts;
+}
+
+/**
+ * Build the single closed "capsule" outline of an OPEN centerline offset
+ * by ±halfW, with a rounded cap at each end (matches the app's existing
+ * round line-cap look). Cutting this one loop frees the whole strip.
+ */
+function laserBuildOpenBand(pts, halfW) {
+  const n = pts.length;
+  if (n < 2) return null;
+  const normals  = laserSegNormals(pts, false);
+  const left     = laserOffsetOpen(pts,  halfW);
+  const right    = laserOffsetOpen(pts, -halfW);
+  const endDir   = laserUnit(pts[n-1].x - pts[n-2].x, pts[n-1].y - pts[n-2].y);
+  const startDir = laserUnit(pts[0].x   - pts[1].x,   pts[0].y   - pts[1].y);
+  const endCap   = laserCapArc(pts[n-1], normals[n-2], endDir,   halfW, LASER_OPT.capSegments);
+  const startCap = laserCapArc(pts[0],   normals[0],   startDir, halfW, LASER_OPT.capSegments).reverse();
+  return [[...left, ...endCap, ...right.slice().reverse(), ...startCap]];
+}
+
+/**
+ * Build the outer + inner contour pair of a CLOSED centerline offset by
+ * ±halfW. Cutting both loops frees the ring/slot between them. If the
+ * shape is smaller than the band width, the inner contour is skipped
+ * (would self-intersect) and only the outer outline is returned.
+ */
+function laserBuildClosedBand(pts, halfW) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                          minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+
+  /* Which offset direction is "outward" depends on the polygon's winding
+     order, which varies per hand-drawn shape — don't assume a sign.
+     Compute both and keep whichever bounding box is larger as the outer
+     contour; this is correct regardless of winding direction. */
+  const bboxSpread = c => {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of c) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+                          y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    return (x1 - x0) + (y1 - y0);
+  };
+  const a = laserOffsetClosed(pts,  halfW);
+  const b = laserOffsetClosed(pts, -halfW);
+  const [outer, inner] = bboxSpread(a) >= bboxSpread(b) ? [a, b] : [b, a];
+
+  if (Math.min(maxX - minX, maxY - minY) < 2 * halfW) return [outer];
+  return [outer, inner];
+}
+
+/** A lone single-point path becomes a small filled-outline circle (e.g. a marker/hole). */
+function laserBuildDot(pt, halfW) {
+  const segs = LASER_OPT.capSegments * 2, out = [];
+  for (let i = 0; i < segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    out.push({ x: pt.x + halfW * Math.cos(a), y: pt.y + halfW * Math.sin(a) });
+  }
+  return [out];
+}
+
+/** Contour list ([[{x,y}…], …]) → one SVG path 'd' with each contour as its own closed subpath. */
+function laserContoursToD(contours) {
+  return contours.map(pts => {
+    if (!pts.length) return '';
+    let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+    for (let i = 1; i < pts.length; i++) d += ` L ${f(pts[i].x)} ${f(pts[i].y)}`;
+    return d + ' Z';
+  }).join(' ');
+}
+
+/**
+ * Run the full optimization pass over a <g> of drawing elements
+ * (path / rect / polygon). Replaces every child with a new <path> whose
+ * outline is the true-width cut geometry described above.
+ * Returns a small stats object for user feedback.
+ */
+/**
+ * Remove near-collinear points from a closed loop. Offsetting/capping and
+ * chain-merging both tend to leave runs of almost-straight points behind
+ * (dense curve sampling, cap arcs, concatenated chain segments that
+ * happen to continue in nearly the same direction) — this drops any
+ * point whose interior angle is closer to straight than `minAngleDeg`,
+ * which is the "simplified and smooth" tidy-up pass on the final trace.
+ * Genuine curve/cap points (interior angle noticeably off 180°) and
+ * real corners are always kept.
+ */
+function simplifyContour(pts, minAngleDeg) {
+  const n = pts.length;
+  if (n < 4) return pts;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n], cur = pts[i], next = pts[(i + 1) % n];
+    if (laserInteriorAngle(prev, cur, next) < minAngleDeg) out.push(cur);
+  }
+  return out.length >= 3 ? out : pts;
+}
+
+/**
+ * The "boolean-like" join step. Walks pen paths that share a welded free
+ * end into one continuous centerline, so the offset/band step below
+ * builds ONE smooth trace through the joint (using the same interior
+ * miter/bevel logic a single hand-drawn corner already gets) instead of
+ * two independently-capped bands that happen to touch — which, tried as
+ * a general shape-boolean, is exactly where the numerics get ugly: two
+ * independently-built round caps meeting at the same point are nearly
+ * — but not exactly — the same curve, and classifying "which side is
+ * outside" along that near-duplicate boundary is the textbook hard case
+ * for polygon booleans. Merging centerlines first sidesteps that
+ * entirely: there is only ever one boundary to build in the first place.
+ *
+ * Only simple two-way joints (every shared point touches exactly two
+ * path ends) are merged this way. A point where 3+ path ends meet (a
+ * branch/star junction) is left unmerged — each stroke keeps its own
+ * independent band there — rather than guess at a correct multi-way
+ * join; this is a deliberate scope limit, not an oversight.
+ *
+ * @param {Array<{dense:Array<{x,y}>, closed:boolean, isDot:boolean, halfW:number}>} pathInfos
+ * @returns {{ groups: Array<{dense, closed, isDot, halfW}>, mergedCount: number }}
+ */
+function mergeLaserChains(pathInfos) {
+  const eps = LASER_OPT.weldEps;
+  const keyOf = p => `${Math.round(p.x / eps)}_${Math.round(p.y / eps)}`;
+
+  const endpointMap = new Map();   /* joint key -> [{idx, end:'start'|'end'}] */
+  pathInfos.forEach((info, idx) => {
+    if (info.closed || info.isDot || info.dense.length < 2) return;
+    const kStart = keyOf(info.dense[0]), kEnd = keyOf(info.dense[info.dense.length - 1]);
+    if (!endpointMap.has(kStart)) endpointMap.set(kStart, []);
+    if (!endpointMap.has(kEnd))   endpointMap.set(kEnd, []);
+    endpointMap.get(kStart).push({ idx, end: 'start' });
+    endpointMap.get(kEnd).push({ idx, end: 'end' });
+  });
+
+  /* Union-find over path indices: two paths that share a joint key belong
+     to the same connected component, however many hops apart. */
+  const parent = pathInfos.map((_, i) => i);
+  const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  for (const list of endpointMap.values()) for (let i = 1; i < list.length; i++) union(list[0].idx, list[i].idx);
+
+  const clusters = new Map();
+  pathInfos.forEach((info, idx) => {
+    if (info.closed || info.isDot || info.dense.length < 2) return;
+    const r = find(idx);
+    if (!clusters.has(r)) clusters.set(r, []);
+    clusters.get(r).push(idx);
+  });
+
+  const groups = [];
+  const handled = new Set();
+  let mergedCount = 0;
+
+  for (const cluster of clusters.values()) {
+    if (cluster.length === 1) continue;   /* nothing to merge — passes through below */
+
+    const clusterKeys = new Set();
+    cluster.forEach(idx => {
+      const info = pathInfos[idx];
+      clusterKeys.add(keyOf(info.dense[0]));
+      clusterKeys.add(keyOf(info.dense[info.dense.length - 1]));
+    });
+    let hasBranch = false;
+    for (const k of clusterKeys) if (endpointMap.get(k).length >= 3) hasBranch = true;
+    if (hasBranch) continue;              /* 3+ way junction — leave this cluster unmerged */
+
+    /* A simple chain has exactly two degree-1 keys (its free ends); a
+       chain that loops back on itself has none (every key is degree 2). */
+    let startKey = null;
+    for (const k of clusterKeys) if (endpointMap.get(k).length === 1) { startKey = k; break; }
+    const isClosedChain = startKey === null;
+    if (isClosedChain) startKey = [...clusterKeys][0];
+
+    const visited = new Set();
+    const seedEntry = endpointMap.get(startKey).find(e => cluster.includes(e.idx));
+    const seedInfo  = pathInfos[seedEntry.idx];
+    const combined  = [ seedEntry.end === 'start' ? seedInfo.dense[0] : seedInfo.dense[seedInfo.dense.length - 1] ];
+    let curKey = startKey, guard = 0, maxHalfW = 0;
+
+    while (guard++ < cluster.length + 2) {
+      const entries = endpointMap.get(curKey).filter(e => cluster.includes(e.idx) && !visited.has(e.idx));
+      if (!entries.length) break;
+      const { idx, end } = entries[0];
+      visited.add(idx);
+      const info = pathInfos[idx];
+      maxHalfW = Math.max(maxHalfW, info.halfW);
+      if (end === 'start') {
+        for (let i = 1; i < info.dense.length; i++) combined.push(info.dense[i]);
+        curKey = keyOf(info.dense[info.dense.length - 1]);
+      } else {
+        for (let i = info.dense.length - 2; i >= 0; i--) combined.push(info.dense[i]);
+        curKey = keyOf(info.dense[0]);
+      }
+    }
+
+    /* Didn't cleanly cover the whole cluster (shouldn't normally happen
+       given the branch check above, but bail safely if it does) — leave
+       these paths to pass through independently instead of emitting
+       possibly-broken merged geometry. */
+    if (visited.size !== cluster.length) continue;
+
+    let finalPts = combined, closed = false;
+    if (isClosedChain || curKey === startKey) { finalPts = combined.slice(0, -1); closed = true; }
+
+    cluster.forEach(idx => handled.add(idx));
+    mergedCount += cluster.length - 1;
+    groups.push({ dense: finalPts, closed, isDot: false, halfW: maxHalfW });
+  }
+
+  pathInfos.forEach((info, idx) => {
+    if (!handled.has(idx)) groups.push({ dense: info.dense, closed: info.closed, isDot: info.isDot, halfW: info.halfW });
+  });
+
+  return { groups, mergedCount };
+}
+
+function optimizeForLaserCutting(groupEl) {
+  const stats = { jointsWelded: 0, cornersFixed: 0, pathsClosed: 0, linesConverted: 0, tracesMerged: 0 };
+  if (!groupEl) return stats;
+
+  const records = Array.from(groupEl.children).map(el => {
+    const tag = el.tagName.toLowerCase();
+    const strokeW = parseFloat(el.getAttribute('stroke-width')) || MM_IN_PT;
+    if (tag === 'path') {
+      let pts = [];
+      try { pts = JSON.parse(el.getAttribute('data-anchors') || '[]'); } catch (_) {}
+      return { el, tag, strokeW, movable: true, isCurve: /[Cc]/.test(el.getAttribute('d') || ''),
+               pts: pts.map(p => ({ x: p.x, y: p.y })) };
+    }
+    if (tag === 'rect') {
+      const x = parseFloat(el.getAttribute('x')      || 0);
+      const y = parseFloat(el.getAttribute('y')      || 0);
+      const w = parseFloat(el.getAttribute('width')  || 0);
+      const h = parseFloat(el.getAttribute('height') || 0);
+      return { el, tag, strokeW, movable: false, pts: [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }] };
+    }
+    if (tag === 'polygon') {
+      const pts = (el.getAttribute('points') || '').trim().split(/\s+/)
+        .map(pair => { const [a, b] = pair.split(','); return { x: parseFloat(a), y: parseFloat(b) }; })
+        .filter(p => !isNaN(p.x) && !isNaN(p.y));
+      return { el, tag, strokeW, movable: false, pts };
+    }
+    return null;
+  }).filter(Boolean);
+
+  /* 1 — DEDUPE accidental duplicate anchors on each pen path */
+  for (const rec of records) {
+    if (rec.tag !== 'path' || rec.pts.length < 2) continue;
+    const cleaned = [rec.pts[0]];
+    for (let i = 1; i < rec.pts.length; i++) {
+      if (laserDist(cleaned[cleaned.length - 1], rec.pts[i]) > LASER_OPT.dupEps) cleaned.push(rec.pts[i]);
+    }
+    rec.pts = cleaned;
+  }
+
+  /* Map every anchor/vertex into GLOBAL space so joints between
+     different (possibly moved/rotated) elements compare correctly. */
+  for (const rec of records) rec.global = rec.pts.map(p => applyElemRotation(rec.el, p.x, p.y));
+
+  /* 2 — WELD JOINTS: cluster all global points within weldEps.
+     A cluster containing a fixed (rect/polygon) point snaps every
+     movable point in it onto that fixed point; an all-movable cluster
+     snaps to its shared midpoint. Fixed shapes are never moved. */
+  const flat = [];
+  records.forEach((rec, ri) => rec.global.forEach((g, pi) => flat.push({ ri, pi, g })));
+  const visited = new Array(flat.length).fill(false);
+
+  for (let i = 0; i < flat.length; i++) {
+    if (visited[i]) continue;
+    const cluster = [flat[i]];
+    visited[i] = true;
+    for (let j = i + 1; j < flat.length; j++) {
+      if (!visited[j] && laserDist(flat[i].g, flat[j].g) <= LASER_OPT.weldEps) {
+        cluster.push(flat[j]); visited[j] = true;
+      }
+    }
+    if (cluster.length < 2) continue;
+    const pin = cluster.find(c => !records[c.ri].movable);
+    const target = pin ? pin.g : {
+      x: cluster.reduce((s, c) => s + c.g.x, 0) / cluster.length,
+      y: cluster.reduce((s, c) => s + c.g.y, 0) / cluster.length
+    };
+    let moved = false;
+    for (const c of cluster) {
+      if (!records[c.ri].movable) continue;
+      if (laserDist(c.g, target) > 1e-6) moved = true;
+      c.g.x = target.x; c.g.y = target.y;
+    }
+    if (moved) stats.jointsWelded++;
+  }
+
+  /* Map welded points back into each movable element's LOCAL space. */
+  for (const rec of records) {
+    if (rec.movable) rec.pts = rec.global.map(g => invApplyElemRotation(rec.el, g.x, g.y));
+  }
+
+  /* 3, 4 & 5 — auto-close, sharp corners, and JOINT-MERGED true-width bands.
+     Squares and triangles are already precise, parametric shapes — a
+     rect/polygon drawn on this canvas is exact by construction, so
+     turning it into an offset outer/inner contour only adds risk
+     (self-intersection on small shapes, doubled cut lines) for no
+     benefit. Only hand-drawn PEN paths need the band treatment, since
+     those are the only elements whose on-screen "thickness" wouldn't
+     otherwise survive export. Rects/polygons are simply restored to
+     their plain hollow look (fill:none / stroke:#000), unchanged
+     geometry — exactly how they exported before this feature existed. */
+  for (const rec of records) {
+    if (rec.tag !== 'path') {
+      rec.el.setAttribute('fill', 'none');
+      rec.el.setAttribute('stroke', '#000000');
+    }
+  }
+
+  /* Auto-close + corner-flatten every pen path, expressed in GLOBAL
+     (on-canvas) coordinates rather than each path's own local space —
+     this is what lets two INDIVIDUALLY moved/rotated paths still be
+     recognized as touching at a shared point, and it's also what the
+     merge step just below needs in order to splice different paths'
+     centerlines together at all. */
+  const pathInfos = [];
+  for (const rec of records) {
+    if (rec.tag !== 'path') continue;
+    let pts = rec.global;
+    if (pts.length < 1) continue;
+
+    let closed = false;
+    if (pts.length > 2 && laserDist(pts[0], pts[pts.length - 1]) <= LASER_OPT.weldEps) {
+      pts = pts.slice(0, -1);
+      closed = true;
+      stats.pathsClosed++;
+    }
+
+    const isDot = pts.length === 1;
+    let dense = pts;
+    if (!isDot && rec.isCurve && pts.length > 2) {
+      const hard = pts.map((p, i) => {
+        if (i === 0 || i === pts.length - 1) return true;          /* open ends are always hard */
+        return laserInteriorAngle(pts[i - 1], p, pts[i + 1]) < LASER_OPT.cornerAngleDeg;
+      });
+      hard.forEach((h, i) => { if (h && i !== 0 && i !== pts.length - 1) stats.cornersFixed++; });
+      dense = flattenCornerCurve(pts, hard, LASER_OPT.curveSamplesPerSeg);
+    }
+
+    pathInfos.push({ dense, closed, isDot, halfW: rec.strokeW / 2 });
+  }
+
+  /* JOIN TRACES — this is the "boolean-like" merge: pen paths whose free
+     ends were welded together (phase 2 above) are walked into ONE
+     continuous centerline before offsetting, instead of building each
+     one's band independently and gluing the separate results together
+     afterward. Reusing the exact same offset/miter code a single hand-
+     drawn corner already goes through means a joint built from several
+     separate strokes comes out as one smooth, simplified trace — no
+     seams, no doubled edges, no redundant cut-over-cut at the join.
+     Only simple two-way joints are merged; a point where 3+ strokes
+     meet (a branch/star junction) is deliberately left unmerged rather
+     than risk incorrect geometry there — see mergeLaserChains() below
+     for why, and simplifyContour() for the final tidy-up pass. */
+  const { groups, mergedCount } = mergeLaserChains(pathInfos);
+  stats.tracesMerged = mergedCount;
+
+  for (const g of groups) {
+    let contours;
+    if (g.isDot) {
+      contours = laserBuildDot(g.dense[0], g.halfW);
+    } else if (g.dense.length < 2) {
+      continue;
+    } else {
+      contours = g.closed ? laserBuildClosedBand(g.dense, g.halfW) : laserBuildOpenBand(g.dense, g.halfW);
+    }
+    if (!contours) continue;
+
+    contours = contours.map(loop => simplifyContour(loop, LASER_OPT.simplifyAngleDeg));
+
+    const band = svgEl('path', {
+      d: laserContoursToD(contours),
+      fill: 'none',
+      stroke: '#000000',
+      'stroke-width': String(LASER_OPT.exportStrokePt),
+      'stroke-linejoin': 'round'
+    });
+    groupEl.appendChild(band);
+    stats.linesConverted++;
+  }
+
+  /* The original pen-path elements have been fully rebuilt above (their
+     geometry now lives in the new band paths, expressed in absolute
+     coordinates) — remove the originals rather than replace them 1:1,
+     since a merge can turn several input paths into one output trace
+     (or, at a branch point, leave the count unchanged). */
+  for (const rec of records) { if (rec.tag === 'path') rec.el.remove(); }
+
+  return stats;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   LASER PREVIEW  ("Outline View" — like Cmd/Ctrl+Y in Illustrator)
+   ══════════════════════════════════════════════════════════════════════
+   Toggling this swaps the live, editable drawing for a read-only render
+   of exactly what optimizeForLaserCutting() would produce on download —
+   welded joints, sharpened corners, and every pen line drawn as its true
+   ±half-width outline — so mismatches between "what I drew" and "what
+   will actually get cut" show up on screen before you ever open
+   LightBurn. Squares/triangles render as-is, same as the export.
+   The live workspace itself is never touched; a temporary copy is built,
+   optimized, and shown in its place while preview is on.             */
+
+let previewOn         = false;
+let laserPreviewLayer = null;
+let preGridWasOn      = false;
+
+function enterLaserPreview() {
+  if (currentPathEl && penPoints.length > 1) commitPenPath();
+  else if (currentPathEl) clearPenPreview();
+  clearRotOverlay(); hideSnap();
+  selectedEl = null; isRotating = false; isMovingObj = false;
+
+  laserPreviewLayer = document.createElementNS(SVG_NS, 'g');
+  laserPreviewLayer.setAttribute('id', 'laserPreviewLayer');
+  laserPreviewLayer.setAttribute('pointer-events', 'none');
+  for (const child of workspace.children) laserPreviewLayer.appendChild(child.cloneNode(true));
+  optimizeForLaserCutting(laserPreviewLayer);   /* same pass the download button runs */
+
+  preGridWasOn = gridOn;
+  if (preGridWasOn) gridLayer.style.display = 'none';   /* the grid isn't part of the cut file either */
+
+  workspace.style.display = 'none';
+  svg.appendChild(laserPreviewLayer);
+  svg.classList.add('laser-preview-active');
+  btnPreview.classList.add('active');
+  previewOn = true;
+  flashHUD('Vista previa láser — mostrando las líneas finales de corte (presiona O o haz clic en el lienzo para volver a editar)');
+}
+
+function exitLaserPreview() {
+  if (!previewOn) return;
+  if (laserPreviewLayer) { laserPreviewLayer.remove(); laserPreviewLayer = null; }
+  workspace.style.display = '';
+  if (preGridWasOn) gridLayer.style.display = '';
+  svg.classList.remove('laser-preview-active');
+  btnPreview.classList.remove('active');
+  previewOn = false;
+  setHUD(null);
+}
+
+function toggleLaserPreview() { previewOn ? exitLaserPreview() : enterLaserPreview(); }
+
+btnPreview.addEventListener('click', toggleLaserPreview);
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   DOWNLOAD SVG
+   Restores physical 50 mm × 50 mm dimensions in the exported file.
+   Strips the ephemeral preview layer.  Offline blob — no network needed.
+   By default, runs optimizeForLaserCutting() on a DETACHED CLONE first —
+   the live, editable canvas is never modified, only the exported file.
+   optimizeForLaserCutting() already rebuilds every element as a plain
+   fill:none / stroke:#000 outline path with true physical width baked
+   into the geometry itself, so no separate "hollow-ify" pass is needed
+   here — the exported paths drop straight into a LightBurn Cut layer.
+   ══════════════════════════════════════════════════════════════════════ */
+
+document.getElementById('btnDownload').addEventListener('click', () => {
+  if (currentPathEl && penPoints.length > 1) commitPenPath();
+  else if (currentPathEl) clearPenPreview();
+
+  const clone = svg.cloneNode(true);
+  const prev  = clone.querySelector('#previewLayer');
+  if (prev) prev.remove();
+  const grid  = clone.querySelector('#gridLayer');   /* screen aid only */
+  if (grid) grid.remove();
+
+  /* ── Optimize geometry for laser cutting (default, export-only) ────── */
+  const cloneWorkspace = clone.querySelector('#studentWorkspace');
+  const optStats = optimizeForLaserCutting(cloneWorkspace);
+
+  /* Add xmlns + restore physical dimensions for a self-describing file */
+  clone.setAttribute('xmlns',  'http://www.w3.org/2000/svg');
+  clone.setAttribute('width',  '50mm');
+  clone.setAttribute('height', '50mm');
+
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+            + new XMLSerializer().serializeToString(clone);
+
+  const blob   = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  const url    = URL.createObjectURL(blob);
+  const anchor = Object.assign(document.createElement('a'),
+    { href: url, download: 'tarea_completada.svg', style: 'display:none' });
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+
+  flashHUD(`Optimizado para láser: ${optStats.linesConverted} trazo${optStats.linesConverted === 1 ? '' : 's'} final${optStats.linesConverted === 1 ? '' : 'es'} `
+          + `(${optStats.tracesMerged} unido${optStats.tracesMerged === 1 ? '' : 's'} en menos trazos) · `
+          + `${optStats.jointsWelded} ${optStats.jointsWelded === 1 ? 'unión soldada' : 'uniones soldadas'} · `
+          + `${optStats.cornersFixed} esquina${optStats.cornersFixed === 1 ? '' : 's'} afilada${optStats.cornersFixed === 1 ? '' : 's'}`);
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+   END OF DRAWING ENGINE v3
+   ══════════════════════════════════════════════════════════════════════ */
+</script>
+</body>
+</html>
