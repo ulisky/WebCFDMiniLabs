@@ -1,7 +1,10 @@
 import { parseSVGToGrid } from './geometry.js';
+import { LBMSolver } from './solver.js';
+import { Renderer } from './renderer.js';
 
 const GRID_SIZE = 200;
 const FLUID = 0, WALL = 1, INLET = 2, OUTLET = 3;
+const STEPS_PER_FRAME = 12;
 
 const COLORS = {
   [FLUID]:  [255, 255, 255],
@@ -18,6 +21,7 @@ const ctx       = simCanvas.getContext('2d');
 let grid = null;
 let painting = false;
 let paintValue = null;
+let simulationRunning = false;
 
 function drawGrid(grid) {
   const imageData = ctx.createImageData(GRID_SIZE, GRID_SIZE);
@@ -46,7 +50,7 @@ function canvasToGrid(event) {
 }
 
 function paintAt(event) {
-  if (!grid || paintValue === null) return;
+  if (!grid || paintValue === null || simulationRunning) return;
 
   const { x, y } = canvasToGrid(event);
   if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
@@ -70,6 +74,8 @@ svgUpload.addEventListener('change', async (event) => {
 simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
 simCanvas.addEventListener('mousedown', (event) => {
+  if (simulationRunning) return;
+
   if (event.button === 0)      paintValue = INLET;
   else if (event.button === 2) paintValue = OUTLET;
   else return;
@@ -85,4 +91,24 @@ simCanvas.addEventListener('mousemove', (event) => {
 window.addEventListener('mouseup', () => {
   painting = false;
   paintValue = null;
+});
+
+btnStart.addEventListener('click', () => {
+  if (!grid || simulationRunning) return;
+
+  simulationRunning = true;
+  svgUpload.disabled = true;
+  btnStart.disabled = true;
+
+  const solver = new LBMSolver(grid);
+  const renderer = new Renderer(simCanvas, grid);
+
+  function frame() {
+    for (let i = 0; i < STEPS_PER_FRAME; i++) solver.step();
+    renderer.drawHeatmap(solver.ux, solver.uy);
+    renderer.drawStreamlines(solver.ux, solver.uy);
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
 });
