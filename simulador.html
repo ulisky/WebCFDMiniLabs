@@ -578,6 +578,84 @@ let painting = false;
 let paintValue = null;
 let simulationRunning = false;
 
+/* Vector Studio's background template (see BG_SNAP_POINTS in
+   vector_studio_v5_2.html) fixes two small indicator dots near the top
+   and one near the bottom of its 141.7x141.7 canvas as permanent snap
+   targets — every student's channel walls snap their endpoints to
+   these exact points. That template is stripped before export, so the
+   uploaded SVG carries no visual trace of the dots; their positions
+   are hardcoded here to match, so the two top dots are always the
+   inlets and the bottom dot is always the outlet, with no manual
+   painting required to go from design to simulation. */
+const CANVAS_UNITS      = 141.7;
+const MARKER_SEARCH_R   = 5;   /* grid cells: how far to hunt for open fluid if a marker lands on a wall pixel */
+const MARKER_FLOOD_R    = 12;  /* grid cells: how far the inlet/outlet region can spread from each marker */
+const INLET_MARKERS_SVG  = [[43.8, 21.7], [101.4, 21.7]];
+const OUTLET_MARKERS_SVG = [[71, 127.7]];
+
+function svgToGrid(x, y) {
+  return {
+    x: Math.round(x * GRID_SIZE / CANVAS_UNITS),
+    y: Math.round(y * GRID_SIZE / CANVAS_UNITS),
+  };
+}
+
+function findNearestFluidCell(grid, x, y) {
+  if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && grid[y * GRID_SIZE + x] !== WALL) {
+    return { x, y };
+  }
+
+  for (let r = 1; r <= MARKER_SEARCH_R; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+        if (grid[ny * GRID_SIZE + nx] !== WALL) return { x: nx, y: ny };
+      }
+    }
+  }
+
+  return null;
+}
+
+function floodFillBoundary(grid, originX, originY, value) {
+  const seed = findNearestFluidCell(grid, originX, originY);
+  if (!seed) return;
+
+  const visited = new Set([seed.y * GRID_SIZE + seed.x]);
+  const queue = [seed];
+
+  while (queue.length > 0) {
+    const { x, y } = queue.shift();
+    grid[y * GRID_SIZE + x] = value;
+
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+      if (Math.max(Math.abs(nx - originX), Math.abs(ny - originY)) > MARKER_FLOOD_R) continue;
+
+      const nIdx = ny * GRID_SIZE + nx;
+      if (visited.has(nIdx) || grid[nIdx] === WALL) continue;
+
+      visited.add(nIdx);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+}
+
+function applyDesignMarkers(grid) {
+  for (const [svgX, svgY] of INLET_MARKERS_SVG) {
+    const { x, y } = svgToGrid(svgX, svgY);
+    floodFillBoundary(grid, x, y, INLET);
+  }
+  for (const [svgX, svgY] of OUTLET_MARKERS_SVG) {
+    const { x, y } = svgToGrid(svgX, svgY);
+    floodFillBoundary(grid, x, y, OUTLET);
+  }
+}
+
 function drawGrid(grid) {
   const imageData = ctx.createImageData(GRID_SIZE, GRID_SIZE);
   for (let i = 0; i < grid.length; i++) {
@@ -622,6 +700,7 @@ svgUpload.addEventListener('change', async (event) => {
   if (!file) return;
 
   grid = await parseSVGToGrid(file);
+  applyDesignMarkers(grid);
   drawGrid(grid);
   btnStart.disabled = false;
 });
