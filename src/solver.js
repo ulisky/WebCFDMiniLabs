@@ -10,9 +10,9 @@ const OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6];
 
 const FLUID = 0, WALL = 1, INLET = 2, OUTLET = 3;
 
-const TAU           = 1.0;   /* relaxation time -> water-like viscosity */
-const INLET_UX      = 0.05;
-const REFERENCE_RHO = 1.0;
+const TAU        = 1.0;   /* relaxation time -> water-like viscosity */
+const INLET_RHO  = 1.5;   /* fixed density that drives the pressure gradient */
+const OUTLET_RHO = 1.0;
 
 export class LBMSolver {
   constructor(grid) {
@@ -57,16 +57,17 @@ export class LBMSolver {
       v /= r;
 
       if (grid[idx] === INLET) {
-        /* Equilibrium boundary: fix both rho and u, ignoring the streamed-in
-           sum. The populations entering from outside the domain are never
-           replenished by streaming alone, so forcing velocity but deriving
-           rho from that incomplete sum drains mass from the inlet column
-           every step. */
-        r = REFERENCE_RHO;
-        u = INLET_UX;
-        v = 0.0;
+        /* Pressure (fixed-density) boundary: only rho is forced, velocity
+           is left as whatever the local extrapolated sum gives, so flow
+           direction follows the channel geometry instead of a hardcoded
+           vector. Forcing a fixed velocity here (e.g. ux=0.05 regardless
+           of the wall orientation) broke down on diagonal or branching
+           channels - a Y-shaped design, say - where that direction
+           doesn't match the channel's actual orientation, so the forced
+           flow crashed into the wall and never developed past the inlet. */
+        r = INLET_RHO;
       } else if (grid[idx] === OUTLET) {
-        r = REFERENCE_RHO;
+        r = OUTLET_RHO;
       }
 
       rho[idx] = r;
