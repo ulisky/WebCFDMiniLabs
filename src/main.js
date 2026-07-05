@@ -16,12 +16,15 @@ const COLORS = {
 const svgUpload = document.getElementById('svgUpload');
 const simCanvas = document.getElementById('simCanvas');
 const btnStart  = document.getElementById('btnStart');
+const btnStop   = document.getElementById('btnStop');
+const btnReset  = document.getElementById('btnReset');
 const ctx       = simCanvas.getContext('2d');
 
 let grid = null;
 let painting = false;
 let paintValue = null;
 let simulationRunning = false;
+let animationFrameId = null;
 
 /* Vector Studio's background template (see BG_SNAP_POINTS in
    vector_studio_v5_2.html) fixes two small indicator dots near the top
@@ -140,6 +143,34 @@ function paintAt(event) {
   drawCell(x, y, paintValue);
 }
 
+function stopSimulation() {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
+  simulationRunning = false;
+  svgUpload.disabled = false;
+  btnStart.disabled = !grid;
+  btnStop.disabled = true;
+}
+
+function resetSimulation() {
+  stopSimulation();
+
+  grid = null;
+  painting = false;
+  paintValue = null;
+
+  svgUpload.value = '';
+  svgUpload.disabled = false;
+  btnStart.disabled = true;
+  btnStop.disabled = true;
+  btnReset.disabled = true;
+
+  ctx.clearRect(0, 0, simCanvas.width, simCanvas.height);
+}
+
 svgUpload.addEventListener('change', async (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -148,6 +179,7 @@ svgUpload.addEventListener('change', async (event) => {
   applyDesignMarkers(grid);
   drawGrid(grid);
   btnStart.disabled = false;
+  btnReset.disabled = false;
 });
 
 simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -178,6 +210,7 @@ btnStart.addEventListener('click', () => {
   simulationRunning = true;
   svgUpload.disabled = true;
   btnStart.disabled = true;
+  btnStop.disabled = false;
 
   const solver = new LBMSolver(grid);
   const renderer = new Renderer(simCanvas, grid);
@@ -186,8 +219,18 @@ btnStart.addEventListener('click', () => {
     for (let i = 0; i < STEPS_PER_FRAME; i++) solver.step();
     renderer.drawHeatmap(solver.ux, solver.uy);
     renderer.drawStreamlines(solver.ux, solver.uy);
-    requestAnimationFrame(frame);
+    animationFrameId = requestAnimationFrame(frame);
   }
 
-  requestAnimationFrame(frame);
+  animationFrameId = requestAnimationFrame(frame);
+});
+
+btnStop.addEventListener('click', () => {
+  if (!simulationRunning) return;
+  stopSimulation();
+});
+
+btnReset.addEventListener('click', () => {
+  if (!grid && !simulationRunning) return;
+  resetSimulation();
 });
