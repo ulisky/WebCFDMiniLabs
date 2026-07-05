@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web CFD Mini Labs</title>
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #12161c;
+  color: #e6e9ef;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.controls input[type="file"] {
+  color: inherit;
+  font-size: 13px;
+}
+
+.controls button {
+  padding: 8px 16px;
+  border-radius: 7px;
+  border: none;
+  background: #4f8ef7;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.controls button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+#simCanvas {
+  background: #ffffff;
+  border: 1px solid #2a3140;
+  image-rendering: pixelated;
+  width: 400px;
+  height: 400px;
+}
+</style>
+</head>
+<body>
+  <main class="app">
+    <h1>Web CFD Mini Labs</h1>
+    <div class="controls">
+      <input type="file" id="svgUpload" accept=".svg">
+      <button id="btnStart" disabled>Start Simulation</button>
+    </div>
+    <canvas id="simCanvas" width="200" height="200"></canvas>
+  </main>
+  <script>
+/* ══════════════════════════════════════════════════════════════════════
+   Shared grid constants (formerly duplicated across geometry.js,
+   solver.js, renderer.js, and main.js — identical values in every file,
+   declared once here since they now share a single script scope).
+   ══════════════════════════════════════════════════════════════════════ */
+const GRID_SIZE = 200;
+const FLUID = 0, WALL = 1, INLET = 2, OUTLET = 3;
+
+/* ══════════════════════════════════════════════════════════════════════
+   geometry.js
+   ══════════════════════════════════════════════════════════════════════ */
+
+function parseSVGToGrid(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const blob = new Blob([reader.result], { type: 'image/svg+xml' });
+      const url  = URL.createObjectURL(blob);
+      const img  = new Image();
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width  = GRID_SIZE;
+        canvas.height = GRID_SIZE;
+        const ctx = canvas.getContext('2d');
+
+        /* White fill first: transparent SVG regions must rasterize as
+           fluid, not as black, once composited onto the grid. */
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
+        ctx.drawImage(img, 0, 0, GRID_SIZE, GRID_SIZE);
+
+        const { data } = ctx.getImageData(0, 0, GRID_SIZE, GRID_SIZE);
+        const grid = new Uint8Array(GRID_SIZE * GRID_SIZE);
+
+        for (let i = 0; i < grid.length; i++) {
+          const r = data[i * 4];
+          const g = data[i * 4 + 1];
+          const b = data[i * 4 + 2];
+          const brightness = (r + g + b) / 3;
+          grid[i] = brightness < 128 ? 1 : 0;
+        }
+
+        URL.revokeObjectURL(url);
+        resolve(grid);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('No se pudo cargar el SVG como imagen.'));
+      };
+
+      img.src = url;
+    };
+
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo SVG.'));
+    reader.readAsText(file);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   solver.js
+   ══════════════════════════════════════════════════════════════════════ */
+
+const N = GRID_SIZE * GRID_SIZE;
+const Q = 9;
+
+/* D2Q9 lattice: 0=rest, 1=E, 2=N, 3=W, 4=S, 5=NE, 6=NW, 7=SW, 8=SE */
+const CX  = [0, 1, 0, -1, 0, 1, -1, -1, 1];
+const CY  = [0, 0, 1, 0, -1, 1, 1, -1, -1];
+const W   = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36];
+const OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6];
+
+const TAU           = 1.0;   /* relaxation time -> water-like viscosity */
+const INLET_UX      = 0.05;
+const REFERENCE_RHO = 1.0;
+
+class LBMSolver {
+  constructor(grid) {
+    this.grid = grid;
+    this.size = GRID_SIZE;
+
+    this.f    = new Float32Array(N * Q);
+    this.fNew = new Float32Array(N * Q);
+    this.rho  = new Float32Array(N);
+    this.ux   = new Float32Array(N);
+    this.uy   = new Float32Array(N);
+
+    this.rho.fill(1.0);
+    for (let idx = 0; idx < N; idx++) this._setEquilibrium(idx, 1.0, 0, 0);
+  }
+
+  _setEquilibrium(idx, rho, ux, uy) {
+    const usq  = ux * ux + uy * uy;
+    const base = idx * Q;
+    for (let i = 0; i < Q; i++) {
+      const cu = CX[i] * ux + CY[i] * uy;
+      this.f[base + i] = W[i] * rho * (1 + 3 * cu + 4.5 * cu * cu - 1.5 * usq);
+    }
+  }
+
+  step() {
+    const { grid, f, fNew, rho, ux, uy, size } = this;
+
+    /* Pass 1: macroscopic moments, boundary forcing, BGK collision (in place on f) */
+    for (let idx = 0; idx < N; idx++) {
+      if (grid[idx] === WALL) continue;
+
+      const base = idx * Q;
+      let r = 0, u = 0, v = 0;
+      for (let i = 0; i < Q; i++) {
+        const fi = f[base + i];
+        r += fi;
+        u += fi * CX[i];
+        v += fi * CY[i];
+      }
+      u /= r;
+      v /= r;
+
+      if (grid[idx] === INLET) {
+        /* Equilibrium boundary: fix both rho and u, ignoring the streamed-in
+           sum. The populations entering from outside the domain are never
+           replenished by streaming alone, so forcing velocity but deriving
+           rho from that incomplete sum drains mass from the inlet column
+           every step. */
+        r = REFERENCE_RHO;
+        u = INLET_UX;
+        v = 0.0;
+      } else if (grid[idx] === OUTLET) {
+        r = REFERENCE_RHO;
+      }
+
+      rho[idx] = r;
+      ux[idx]  = u;
+      uy[idx]  = v;
+
+      const usq = u * u + v * v;
+      for (let i = 0; i < Q; i++) {
+        const cu  = CX[i] * u + CY[i] * v;
+        const feq = W[i] * r * (1 + 3 * cu + 4.5 * cu * cu - 1.5 * usq);
+        f[base + i] += (feq - f[base + i]) / TAU;
+      }
+    }
+
+    /* Pass 2: streaming, with bounce-back off walls and domain edges */
+    fNew.fill(0);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const idx = y * size + x;
+        if (grid[idx] === WALL) continue;
+
+        const base = idx * Q;
+        for (let i = 0; i < Q; i++) {
+          const fi = f[base + i];
+          const nx = x + CX[i];
+          const ny = y + CY[i];
+
+          if (nx < 0 || nx >= size || ny < 0 || ny >= size || grid[ny * size + nx] === WALL) {
+            fNew[base + OPP[i]] += fi;
+          } else {
+            fNew[(ny * size + nx) * Q + i] += fi;
+          }
+        }
+      }
+    }
+
+    [this.f, this.fNew] = [this.fNew, this.f];
+  }
+
+  get velocity() {
+    return { ux: this.ux, uy: this.uy };
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   renderer.js
+   ══════════════════════════════════════════════════════════════════════ */
+
+const PARTICLE_COUNT   = 500;
+const ADVECTION_SCALE  = 15;   /* matches the 10-15 solver substeps per frame */
+const V_MAX            = 0.1;  /* lattice speed that maps to the top of the ramp */
+
+/* Viridis: perceptually-uniform, colorblind-safe sequential colormap —
+   the standard accessible replacement for a classic blue-to-red "jet"
+   scale in scientific visualization. Dark purple = slow, yellow = fast. */
+const VIRIDIS_STOPS = [
+  [68, 1, 84],
+  [59, 82, 139],
+  [33, 145, 140],
+  [94, 201, 98],
+  [253, 231, 37],
+];
+
+function viridis(t) {
+  const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+  const scaled  = clamped * (VIRIDIS_STOPS.length - 1);
+  const i       = Math.min(VIRIDIS_STOPS.length - 2, Math.floor(scaled));
+  const frac    = scaled - i;
+  const [r1, g1, b1] = VIRIDIS_STOPS[i];
+  const [r2, g2, b2] = VIRIDIS_STOPS[i + 1];
+  return [
+    r1 + (r2 - r1) * frac,
+    g1 + (g2 - g1) * frac,
+    b1 + (b2 - b1) * frac,
+  ];
+}
+
+class Renderer {
+  constructor(canvas, grid) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.grid   = grid;
+    this.size   = GRID_SIZE;
+
+    this.heatmapImage = this.ctx.createImageData(GRID_SIZE, GRID_SIZE);
+
+    this.inletCells = [];
+    for (let idx = 0; idx < grid.length; idx++) {
+      if (grid[idx] === INLET) this.inletCells.push(idx);
+    }
+
+    this.particles = Array.from({ length: PARTICLE_COUNT }, () => this._spawnParticle());
+  }
+
+  _randomInletPosition() {
+    if (this.inletCells.length === 0) {
+      return { x: Math.random() * this.size, y: Math.random() * this.size };
+    }
+    const idx = this.inletCells[(Math.random() * this.inletCells.length) | 0];
+    return { x: idx % this.size, y: Math.floor(idx / this.size) };
+  }
+
+  _spawnParticle() {
+    const { x, y } = this._randomInletPosition();
+    return { x, y, px: x, py: y };
+  }
+
+  drawHeatmap(ux, uy) {
+    const { grid, heatmapImage } = this;
+    const data = heatmapImage.data;
+
+    for (let idx = 0; idx < grid.length; idx++) {
+      const o = idx * 4;
+      if (grid[idx] === WALL) {
+        data[o] = 0; data[o + 1] = 0; data[o + 2] = 0; data[o + 3] = 255;
+        continue;
+      }
+
+      const speed = Math.sqrt(ux[idx] * ux[idx] + uy[idx] * uy[idx]);
+      const [r, g, b] = viridis(speed / V_MAX);
+      data[o] = r; data[o + 1] = g; data[o + 2] = b; data[o + 3] = 255;
+    }
+
+    this.ctx.putImageData(heatmapImage, 0, 0);
+  }
+
+  drawStreamlines(ux, uy) {
+    const { ctx, grid, size, particles } = this;
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+
+    for (const p of particles) {
+      const idx = (p.y | 0) * size + (p.x | 0);
+
+      ctx.moveTo(p.px, p.py);
+      ctx.lineTo(p.x, p.y);
+
+      p.px = p.x;
+      p.py = p.y;
+      p.x += ux[idx] * ADVECTION_SCALE;
+      p.y += uy[idx] * ADVECTION_SCALE;
+
+      const nx = p.x | 0;
+      const ny = p.y | 0;
+      const outOfBounds = nx < 0 || nx >= size || ny < 0 || ny >= size;
+      const cell = outOfBounds ? WALL : grid[ny * size + nx];
+
+      if (outOfBounds || cell === WALL || cell === OUTLET) {
+        const spawn = this._randomInletPosition();
+        p.x = p.px = spawn.x;
+        p.y = p.py = spawn.y;
+      }
+    }
+
+    ctx.stroke();
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   main.js
+   ══════════════════════════════════════════════════════════════════════ */
+
+const STEPS_PER_FRAME = 12;
+
+const COLORS = {
+  [FLUID]:  [255, 255, 255],
+  [WALL]:   [0, 0, 0],
+  [INLET]:  [220, 40, 40],
+  [OUTLET]: [40, 90, 220],
+};
+
+const svgUpload = document.getElementById('svgUpload');
+const simCanvas = document.getElementById('simCanvas');
+const btnStart  = document.getElementById('btnStart');
+const ctx       = simCanvas.getContext('2d');
+
+let grid = null;
+let painting = false;
+let paintValue = null;
+let simulationRunning = false;
+
+function drawGrid(grid) {
+  const imageData = ctx.createImageData(GRID_SIZE, GRID_SIZE);
+  for (let i = 0; i < grid.length; i++) {
+    const [r, g, b] = COLORS[grid[i]];
+    imageData.data[i * 4]     = r;
+    imageData.data[i * 4 + 1] = g;
+    imageData.data[i * 4 + 2] = b;
+    imageData.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function drawCell(x, y, value) {
+  const [r, g, b] = COLORS[value];
+  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+  ctx.fillRect(x, y, 1, 1);
+}
+
+function canvasToGrid(event) {
+  const rect = simCanvas.getBoundingClientRect();
+  return {
+    x: Math.floor((event.clientX - rect.left) / rect.width  * GRID_SIZE),
+    y: Math.floor((event.clientY - rect.top)  / rect.height * GRID_SIZE),
+  };
+}
+
+function paintAt(event) {
+  if (!grid || paintValue === null || simulationRunning) return;
+
+  const { x, y } = canvasToGrid(event);
+  if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+
+  const idx = y * GRID_SIZE + x;
+  if (grid[idx] === WALL) return;
+
+  grid[idx] = paintValue;
+  drawCell(x, y, paintValue);
+}
+
+svgUpload.addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  grid = await parseSVGToGrid(file);
+  drawGrid(grid);
+  btnStart.disabled = false;
+});
+
+simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+simCanvas.addEventListener('mousedown', (event) => {
+  if (simulationRunning) return;
+
+  if (event.button === 0)      paintValue = INLET;
+  else if (event.button === 2) paintValue = OUTLET;
+  else return;
+
+  painting = true;
+  paintAt(event);
+});
+
+simCanvas.addEventListener('mousemove', (event) => {
+  if (painting) paintAt(event);
+});
+
+window.addEventListener('mouseup', () => {
+  painting = false;
+  paintValue = null;
+});
+
+btnStart.addEventListener('click', () => {
+  if (!grid || simulationRunning) return;
+
+  simulationRunning = true;
+  svgUpload.disabled = true;
+  btnStart.disabled = true;
+
+  const solver = new LBMSolver(grid);
+  const renderer = new Renderer(simCanvas, grid);
+
+  function frame() {
+    for (let i = 0; i < STEPS_PER_FRAME; i++) solver.step();
+    renderer.drawHeatmap(solver.ux, solver.uy);
+    renderer.drawStreamlines(solver.ux, solver.uy);
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+});
+  </script>
+</body>
+</html>
