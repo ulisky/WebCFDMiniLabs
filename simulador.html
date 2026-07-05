@@ -5,78 +5,264 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Web CFD Mini Labs</title>
 <style>
-* { box-sizing: border-box; }
+
+/* ══════════════════════════════════════════════════════
+   DESIGN TOKENS — matches vector_studio_v5_2.html
+   ══════════════════════════════════════════════════════ */
+:root {
+  --bg:             #e6eaf1;
+  --card:           #ffffff;
+  --toolbar-bg:     #191927;
+  --toolbar-border: rgba(255,255,255,0.05);
+  --accent-a:       #4f8ef7;
+  --accent-b:       #9d7cf4;
+  --accent-a-hover: #3d7de0;
+  --border:         #e0e5ed;
+  --shadow-card:    0 8px 40px rgba(0,0,0,0.11), 0 1px 4px rgba(0,0,0,0.07);
+  --shadow-canvas:  0 3px 20px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.07);
+}
+
+/* ══════════════════════════════════════════════════════
+   RESET & BASE
+   ══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #12161c;
-  color: #e6e9ef;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 24px 16px;
 }
 
-.app {
+/* ══════════════════════════════════════════════════════
+   APP CARD
+   ══════════════════════════════════════════════════════ */
+.app-card {
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 24px;
+  width: fit-content;
+  min-width: 480px;
 }
 
-h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+.accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  flex-shrink: 0;
 }
 
-.controls {
+/* ══════════════════════════════════════════════════════
+   TOOLBAR
+   ══════════════════════════════════════════════════════ */
+.toolbar {
+  background: var(--toolbar-bg);
   display: flex;
   align-items: center;
-  gap: 10px;
+  padding: 9px 15px;
+  gap: 9px;
+  border-bottom: 1px solid var(--toolbar-border);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.controls input[type="file"] {
-  color: inherit;
-  font-size: 13px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #bfc8dc;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+.brand-gem {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 
-.controls button {
-  padding: 8px 16px;
-  border-radius: 7px;
-  border: none;
-  background: #4f8ef7;
-  color: #fff;
-  font-size: 13px;
+.toolbar-sep { width: 1px; height: 24px; background: rgba(255,255,255,0.09); flex-shrink: 0; }
+
+.tool-group { display: flex; align-items: center; gap: 2px; }
+
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(191,200,220,0.60);
+  font-size: 11.5px;
   font-weight: 500;
   cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
 }
+.upload-btn:hover { background: rgba(255,255,255,0.07); color: #bfc8dc; }
+.upload-btn svg   { flex-shrink: 0; pointer-events: none; }
 
-.controls button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+/* #svgUpload keeps its native disabled state during simulation; this
+   sibling selector mirrors that state onto its styled label, since the
+   input itself is visually hidden in favor of the label-as-button. */
+#svgUpload:disabled + .upload-btn { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════
+   CANVAS AREA
+   ══════════════════════════════════════════════════════ */
+.canvas-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 40px;
+  background: #edf0f6;
+  flex-shrink: 0;
 }
 
 #simCanvas {
-  background: #ffffff;
-  border: 1px solid #2a3140;
-  image-rendering: pixelated;
-  width: 400px;
+  display: block;
+  width:  400px;
   height: 400px;
+  border-radius: 3px;
+  box-shadow: var(--shadow-canvas);
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  image-rendering: pixelated;
+  background: #ffffff;
 }
+
+/* ══════════════════════════════════════════════════════
+   CONTROLS BAR
+   ══════════════════════════════════════════════════════ */
+.controls-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-top: 1px solid var(--border);
+  background: #fafbfc;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.ctrl-group  { display: flex; align-items: center; gap: 6px; }
+.ctrl-spacer { flex: 1; }
+
+.ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+  border: 1.5px solid var(--accent-a);
+  background: var(--accent-a);
+  color: #fff;
+}
+.ctrl-btn:hover:not(:disabled)  { background: var(--accent-a-hover); border-color: var(--accent-a-hover); }
+.ctrl-btn:active:not(:disabled) { opacity: 0.78; transform: translateY(1px); }
+.ctrl-btn:disabled              { opacity: 0.28; cursor: not-allowed; }
+.ctrl-btn svg                   { flex-shrink: 0; pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════
+   HINT STRIP
+   ══════════════════════════════════════════════════════ */
+.hint-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 7px 16px 8px;
+  border-top: 1px solid var(--border);
+  background: #f8f9fb;
+  flex-shrink: 0;
+}
+.hint-item { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #9aa3b0; }
+.swatch {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
 </style>
 </head>
 <body>
-  <main class="app">
-    <h1>Web CFD Mini Labs</h1>
-    <div class="controls">
-      <input type="file" id="svgUpload" accept=".svg">
-      <button id="btnStart" disabled>Start Simulation</button>
+
+<div class="app-card">
+  <div class="accent-bar"></div>
+
+  <header class="toolbar">
+
+    <div class="brand">
+      <span class="brand-gem">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <polygon points="6,1 11,5 6,11 1,5" fill="rgba(255,255,255,0.92)"/>
+        </svg>
+      </span>
+      Web CFD Mini Labs
     </div>
+
+    <div class="toolbar-sep"></div>
+
+    <div class="tool-group">
+      <input type="file" id="svgUpload" accept=".svg" hidden>
+      <label class="upload-btn" for="svgUpload" title="Cargar la geometría SVG exportada desde Vector Studio">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17,8 12,3 7,8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Cargar SVG
+      </label>
+    </div>
+
+  </header>
+
+  <main class="canvas-area">
     <canvas id="simCanvas" width="200" height="200"></canvas>
   </main>
+
+  <footer class="controls-bar">
+    <div class="ctrl-spacer"></div>
+    <div class="ctrl-group">
+      <button class="ctrl-btn" id="btnStart" disabled title="Ejecutar el solver LBM sobre la geometría cargada">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="6,4 20,12 6,20" fill="currentColor" stroke="none"/>
+        </svg>
+        Start Simulation
+      </button>
+    </div>
+  </footer>
+
+  <div class="hint-strip">
+    <span class="hint-item">Left-click + drag: paint inlet</span>
+    <span class="hint-item"><span class="swatch" style="background:#dc2828;"></span>Inlet</span>
+    <span class="hint-item">Right-click + drag: paint outlet</span>
+    <span class="hint-item"><span class="swatch" style="background:#285adc;"></span>Outlet</span>
+    <span class="hint-item"><span class="swatch" style="background:#000000;"></span>Wall</span>
+  </div>
+
+</div>
   <script>
 /* ══════════════════════════════════════════════════════════════════════
    Shared grid constants (formerly duplicated across geometry.js,
