@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web CFD Mini Labs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <h1>Web CFD Mini Labs</h1>
+    <div class="controls">
+      <input type="file" id="svgUpload" accept=".svg">
+      <button id="btnStart" disabled>Start Simulation</button>
+    </div>
+    <canvas id="simCanvas" width="200" height="200"></canvas>
+  </main>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
