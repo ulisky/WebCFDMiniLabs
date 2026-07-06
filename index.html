@@ -11,6 +11,12 @@
     <h1>Web CFD Mini Labs</h1>
     <div class="controls">
       <input type="file" id="svgUpload" accept=".svg">
+      <label class="slider-label">Velocidad Entrada 1
+        <input type="range" id="sliderInlet1" min="0.0" max="0.1" step="0.001" value="0.05">
+      </label>
+      <label class="slider-label">Velocidad Entrada 2
+        <input type="range" id="sliderInlet2" min="0.0" max="0.1" step="0.001" value="0.05">
+      </label>
       <button id="btnReset" disabled>Reset</button>
       <button id="btnStop" disabled>Stop Simulation</button>
       <button id="btnStart" disabled>Start Simulation</button>

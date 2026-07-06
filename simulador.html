@@ -202,6 +202,19 @@ body {
 }
 .btn-stop:hover:not(:disabled) { background: var(--amber-hover); }
 
+.slider-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #6b7280;
+}
+.slider-ctrl input[type="range"] {
+  width: 90px;
+  accent-color: var(--accent-a);
+}
+
 /* ══════════════════════════════════════════════════════
    HINT STRIP
    ══════════════════════════════════════════════════════ */
@@ -276,6 +289,14 @@ body {
     </div>
     <div class="ctrl-spacer"></div>
     <div class="ctrl-group">
+      <label class="slider-ctrl">
+        Velocidad Entrada 1
+        <input type="range" id="sliderInlet1" min="0.0" max="0.1" step="0.001" value="0.05">
+      </label>
+      <label class="slider-ctrl">
+        Velocidad Entrada 2
+        <input type="range" id="sliderInlet2" min="0.0" max="0.1" step="0.001" value="0.05">
+      </label>
       <button class="ctrl-btn btn-stop" id="btnStop" disabled title="Detener la simulación">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
@@ -309,7 +330,7 @@ body {
    declared once here since they now share a single script scope).
    ══════════════════════════════════════════════════════════════════════ */
 const GRID_SIZE = 200;
-const FLUID = 0, WALL = 1, INLET = 2, OUTLET = 3;
+const FLUID = 0, WALL = 1, INLET_1 = 2, OUTLET = 3, INLET_2 = 4;
 
 /* ══════════════════════════════════════════════════════════════════════
    geometry.js
@@ -379,14 +400,21 @@ const CY  = [0, 0, 1, 0, -1, 1, 1, -1, -1];
 const W   = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36];
 const OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6];
 
-const TAU        = 1.0;   /* relaxation time -> water-like viscosity */
-const INLET_RHO  = 1.5;   /* fixed density that drives the pressure gradient */
-const OUTLET_RHO = 1.0;
+const TAU           = 1.0;   /* relaxation time -> water-like viscosity */
+const REFERENCE_RHO = 1.0;
 
 class LBMSolver {
-  constructor(grid) {
+  /* inlet1Dir/inlet2Dir: {x, y} unit vectors giving each inlet's local
+     flow direction (see applyDesignMarkers below), so the forced inlet
+     velocity follows the channel's actual orientation instead of
+     assuming a fixed +x direction - that assumption broke down on
+     diagonal or branching channels, where the forced flow crashed into
+     the wall and never developed past the inlet. */
+  constructor(grid, inlet1Dir = { x: 1, y: 0 }, inlet2Dir = { x: 1, y: 0 }) {
     this.grid = grid;
     this.size = GRID_SIZE;
+    this.inlet1Dir = inlet1Dir;
+    this.inlet2Dir = inlet2Dir;
 
     this.f    = new Float32Array(N * Q);
     this.fNew = new Float32Array(N * Q);
@@ -407,8 +435,11 @@ class LBMSolver {
     }
   }
 
-  step() {
-    const { grid, f, fNew, rho, ux, uy, size } = this;
+  /* u1, u2: velocity magnitude (lattice units/step) for INLET_1 and
+     INLET_2, independently controllable and capped at 0.1 by the UI
+     sliders to stay well below the LBM Mach-number stability limit. */
+  step(u1 = 0.05, u2 = 0.05) {
+    const { grid, f, fNew, rho, ux, uy, size, inlet1Dir, inlet2Dir } = this;
 
     /* Pass 1: macroscopic moments, boundary forcing, BGK collision (in place on f) */
     for (let idx = 0; idx < N; idx++) {
@@ -425,18 +456,16 @@ class LBMSolver {
       u /= r;
       v /= r;
 
-      if (grid[idx] === INLET) {
-        /* Pressure (fixed-density) boundary: only rho is forced, velocity
-           is left as whatever the local extrapolated sum gives, so flow
-           direction follows the channel geometry instead of a hardcoded
-           vector. Forcing a fixed velocity here (e.g. ux=0.05 regardless
-           of the wall orientation) broke down on diagonal or branching
-           channels - a Y-shaped design, say - where that direction
-           doesn't match the channel's actual orientation, so the forced
-           flow crashed into the wall and never developed past the inlet. */
-        r = INLET_RHO;
+      if (grid[idx] === INLET_1) {
+        r = REFERENCE_RHO;
+        u = inlet1Dir.x * u1;
+        v = inlet1Dir.y * u1;
+      } else if (grid[idx] === INLET_2) {
+        r = REFERENCE_RHO;
+        u = inlet2Dir.x * u2;
+        v = inlet2Dir.y * u2;
       } else if (grid[idx] === OUTLET) {
-        r = OUTLET_RHO;
+        r = REFERENCE_RHO;
       }
 
       rho[idx] = r;
@@ -525,7 +554,7 @@ class Renderer {
 
     this.inletCells = [];
     for (let idx = 0; idx < grid.length; idx++) {
-      if (grid[idx] === INLET) this.inletCells.push(idx);
+      if (grid[idx] === INLET_1 || grid[idx] === INLET_2) this.inletCells.push(idx);
     }
 
     this.particles = Array.from({ length: PARTICLE_COUNT }, () => this._spawnParticle());
@@ -606,22 +635,29 @@ const STEPS_PER_FRAME = 12;
 const COLORS = {
   [FLUID]:  [255, 255, 255],
   [WALL]:   [0, 0, 0],
-  [INLET]:  [220, 40, 40],
+  [INLET_1]: [220, 40, 40],
+  [INLET_2]: [220, 40, 40],
   [OUTLET]: [40, 90, 220],
 };
 
-const svgUpload = document.getElementById('svgUpload');
-const simCanvas = document.getElementById('simCanvas');
-const btnStart  = document.getElementById('btnStart');
-const btnStop   = document.getElementById('btnStop');
-const btnReset  = document.getElementById('btnReset');
-const ctx       = simCanvas.getContext('2d');
+const svgUpload    = document.getElementById('svgUpload');
+const simCanvas    = document.getElementById('simCanvas');
+const btnStart     = document.getElementById('btnStart');
+const btnStop      = document.getElementById('btnStop');
+const btnReset     = document.getElementById('btnReset');
+const sliderInlet1 = document.getElementById('sliderInlet1');
+const sliderInlet2 = document.getElementById('sliderInlet2');
+const ctx          = simCanvas.getContext('2d');
 
 let grid = null;
 let painting = false;
 let paintValue = null;
 let simulationRunning = false;
 let animationFrameId = null;
+let inlet1Dir = { x: 1, y: 0 };
+let inlet2Dir = { x: 1, y: 0 };
+let inlet1Speed = parseFloat(sliderInlet1.value);
+let inlet2Speed = parseFloat(sliderInlet2.value);
 
 /* Vector Studio's background template (see BG_SNAP_POINTS in
    vector_studio_v5_2.html) fixes two small indicator dots near the top
@@ -665,16 +701,25 @@ function findNearestFluidCell(grid, x, y) {
   return null;
 }
 
+/* Flood-fills the connected fluid region from (originX, originY) with
+   `value`, and returns a unit vector pointing from the origin toward
+   the region's centroid - the local direction the channel runs in.
+   The solver forces each inlet's velocity along this vector (scaled by
+   its slider) instead of a fixed +x direction, since a hardcoded
+   direction breaks on diagonal or branching channels: the forced flow
+   crashes into the wall and never develops past the inlet. */
 function floodFillBoundary(grid, originX, originY, value) {
   const seed = findNearestFluidCell(grid, originX, originY);
-  if (!seed) return;
+  if (!seed) return null;
 
   const visited = new Set([seed.y * GRID_SIZE + seed.x]);
   const queue = [seed];
+  let sumX = 0, sumY = 0, count = 0;
 
   while (queue.length > 0) {
     const { x, y } = queue.shift();
     grid[y * GRID_SIZE + x] = value;
+    sumX += x; sumY += y; count++;
 
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, ny = y + dy;
@@ -688,13 +733,21 @@ function floodFillBoundary(grid, originX, originY, value) {
       queue.push({ x: nx, y: ny });
     }
   }
+
+  const dx = sumX / count - originX;
+  const dy = sumY / count - originY;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: dx / len, y: dy / len };
 }
 
 function applyDesignMarkers(grid) {
-  for (const [svgX, svgY] of INLET_MARKERS_SVG) {
-    const { x, y } = svgToGrid(svgX, svgY);
-    floodFillBoundary(grid, x, y, INLET);
-  }
+  const [m1, m2] = INLET_MARKERS_SVG;
+  const p1 = svgToGrid(m1[0], m1[1]);
+  const p2 = svgToGrid(m2[0], m2[1]);
+
+  inlet1Dir = floodFillBoundary(grid, p1.x, p1.y, INLET_1) || { x: 1, y: 0 };
+  inlet2Dir = floodFillBoundary(grid, p2.x, p2.y, INLET_2) || { x: 1, y: 0 };
+
   for (const [svgX, svgY] of OUTLET_MARKERS_SVG) {
     const { x, y } = svgToGrid(svgX, svgY);
     floodFillBoundary(grid, x, y, OUTLET);
@@ -779,12 +832,20 @@ svgUpload.addEventListener('change', async (event) => {
   btnReset.disabled = false;
 });
 
+sliderInlet1.addEventListener('input', () => {
+  inlet1Speed = parseFloat(sliderInlet1.value);
+});
+
+sliderInlet2.addEventListener('input', () => {
+  inlet2Speed = parseFloat(sliderInlet2.value);
+});
+
 simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
 simCanvas.addEventListener('mousedown', (event) => {
   if (simulationRunning) return;
 
-  if (event.button === 0)      paintValue = INLET;
+  if (event.button === 0)      paintValue = INLET_1;
   else if (event.button === 2) paintValue = OUTLET;
   else return;
 
@@ -809,11 +870,11 @@ btnStart.addEventListener('click', () => {
   btnStart.disabled = true;
   btnStop.disabled = false;
 
-  const solver = new LBMSolver(grid);
+  const solver = new LBMSolver(grid, inlet1Dir, inlet2Dir);
   const renderer = new Renderer(simCanvas, grid);
 
   function frame() {
-    for (let i = 0; i < STEPS_PER_FRAME; i++) solver.step();
+    for (let i = 0; i < STEPS_PER_FRAME; i++) solver.step(inlet1Speed, inlet2Speed);
     renderer.drawHeatmap(solver.ux, solver.uy);
     renderer.drawStreamlines(solver.ux, solver.uy);
     animationFrameId = requestAnimationFrame(frame);

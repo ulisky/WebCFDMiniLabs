@@ -28,7 +28,16 @@ h1 {
 .controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.slider-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: inherit;
 }
 
 .controls input[type="file"] {

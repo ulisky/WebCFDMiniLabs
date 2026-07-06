@@ -1,5 +1,5 @@
 const GRID_SIZE = 200;
-const FLUID = 0, WALL = 1, INLET = 2, OUTLET = 3;
+const FLUID = 0, WALL = 1, INLET_1 = 2, OUTLET = 3, INLET_2 = 4;
 
 const PARTICLE_COUNT   = 500;
 const ADVECTION_SCALE  = 15;   /* matches the 10-15 solver substeps per frame */
@@ -41,7 +41,7 @@ export class Renderer {
 
     this.inletCells = [];
     for (let idx = 0; idx < grid.length; idx++) {
-      if (grid[idx] === INLET) this.inletCells.push(idx);
+      if (grid[idx] === INLET_1 || grid[idx] === INLET_2) this.inletCells.push(idx);
     }
 
     this.particles = Array.from({ length: PARTICLE_COUNT }, () => this._spawnParticle());
