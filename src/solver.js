@@ -8,16 +8,23 @@ const CY  = [0, 0, 1, 0, -1, 1, 1, -1, -1];
 const W   = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36];
 const OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6];
 
-const FLUID = 0, WALL = 1, INLET = 2, OUTLET = 3;
+const FLUID = 0, WALL = 1, INLET_1 = 2, OUTLET = 3, INLET_2 = 4;
 
 const TAU           = 1.0;   /* relaxation time -> water-like viscosity */
-const INLET_UX      = 0.05;
 const REFERENCE_RHO = 1.0;
 
 export class LBMSolver {
-  constructor(grid) {
+  /* inlet1Dir/inlet2Dir: {x, y} unit vectors giving each inlet's local
+     flow direction (see applyDesignMarkers in main.js), so the forced
+     inlet velocity follows the channel's actual orientation instead of
+     assuming a fixed +x direction - that assumption broke down on
+     diagonal or branching channels, where the forced flow crashed into
+     the wall and never developed past the inlet. */
+  constructor(grid, inlet1Dir = { x: 1, y: 0 }, inlet2Dir = { x: 1, y: 0 }) {
     this.grid = grid;
     this.size = GRID_SIZE;
+    this.inlet1Dir = inlet1Dir;
+    this.inlet2Dir = inlet2Dir;
 
     this.f    = new Float32Array(N * Q);
     this.fNew = new Float32Array(N * Q);
@@ -38,8 +45,11 @@ export class LBMSolver {
     }
   }
 
-  step() {
-    const { grid, f, fNew, rho, ux, uy, size } = this;
+  /* u1, u2: velocity magnitude (lattice units/step) for INLET_1 and
+     INLET_2, independently controllable and capped at 0.1 by the UI
+     sliders to stay well below the LBM Mach-number stability limit. */
+  step(u1 = 0.05, u2 = 0.05) {
+    const { grid, f, fNew, rho, ux, uy, size, inlet1Dir, inlet2Dir } = this;
 
     /* Pass 1: macroscopic moments, boundary forcing, BGK collision (in place on f) */
     for (let idx = 0; idx < N; idx++) {
@@ -56,15 +66,14 @@ export class LBMSolver {
       u /= r;
       v /= r;
 
-      if (grid[idx] === INLET) {
-        /* Equilibrium boundary: fix both rho and u, ignoring the streamed-in
-           sum. The populations entering from outside the domain are never
-           replenished by streaming alone, so forcing velocity but deriving
-           rho from that incomplete sum drains mass from the inlet column
-           every step. */
+      if (grid[idx] === INLET_1) {
         r = REFERENCE_RHO;
-        u = INLET_UX;
-        v = 0.0;
+        u = inlet1Dir.x * u1;
+        v = inlet1Dir.y * u1;
+      } else if (grid[idx] === INLET_2) {
+        r = REFERENCE_RHO;
+        u = inlet2Dir.x * u2;
+        v = inlet2Dir.y * u2;
       } else if (grid[idx] === OUTLET) {
         r = REFERENCE_RHO;
       }

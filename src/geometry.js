@@ -16,7 +16,7 @@ export function parseSVGToGrid(file) {
         const ctx = canvas.getContext('2d');
 
         /* White fill first: transparent SVG regions must rasterize as
-           fluid, not as black, once composited onto the grid. */
+           solid block (wall), not as black, once composited onto the grid. */
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
         ctx.drawImage(img, 0, 0, GRID_SIZE, GRID_SIZE);
@@ -24,12 +24,14 @@ export function parseSVGToGrid(file) {
         const { data } = ctx.getImageData(0, 0, GRID_SIZE, GRID_SIZE);
         const grid = new Uint8Array(GRID_SIZE * GRID_SIZE);
 
+        /* The student's drawn strokes are the hollow micro-channels bored
+           into a solid block: dark ink -> fluid, everything else -> wall. */
         for (let i = 0; i < grid.length; i++) {
           const r = data[i * 4];
           const g = data[i * 4 + 1];
           const b = data[i * 4 + 2];
           const brightness = (r + g + b) / 3;
-          grid[i] = brightness < 128 ? 1 : 0;
+          grid[i] = brightness < 128 ? 0 : 1;
         }
 
         URL.revokeObjectURL(url);

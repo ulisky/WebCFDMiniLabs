@@ -5,78 +5,357 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Web CFD Mini Labs</title>
 <style>
-* { box-sizing: border-box; }
+
+/* ══════════════════════════════════════════════════════
+   DESIGN TOKENS — matches vector_studio_v5_2.html
+   ══════════════════════════════════════════════════════ */
+:root {
+  --bg:             #e6eaf1;
+  --card:           #ffffff;
+  --toolbar-bg:     #191927;
+  --toolbar-border: rgba(255,255,255,0.05);
+  --accent-a:       #4f8ef7;
+  --accent-b:       #9d7cf4;
+  --accent-a-hover: #3d7de0;
+  --border:         #e0e5ed;
+  --amber-bg:       #fffbf0;
+  --amber-border:   #e8b45a;
+  --amber-text:     #8a5d0e;
+  --amber-hover:    #fff3d0;
+  --red-bg:         #fff5f5;
+  --red-border:     #fca5a5;
+  --red-text:       #b91c1c;
+  --red-hover:      #fee2e2;
+  --shadow-card:    0 8px 40px rgba(0,0,0,0.11), 0 1px 4px rgba(0,0,0,0.07);
+  --shadow-canvas:  0 3px 20px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.07);
+}
+
+/* ══════════════════════════════════════════════════════
+   RESET & BASE
+   ══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #12161c;
-  color: #e6e9ef;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 24px 16px;
 }
 
-.app {
+/* ══════════════════════════════════════════════════════
+   APP CARD
+   ══════════════════════════════════════════════════════ */
+.app-card {
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 24px;
+  width: fit-content;
+  min-width: 480px;
 }
 
-h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+.accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  flex-shrink: 0;
 }
 
-.controls {
+/* ══════════════════════════════════════════════════════
+   TOOLBAR
+   ══════════════════════════════════════════════════════ */
+.toolbar {
+  background: var(--toolbar-bg);
   display: flex;
   align-items: center;
-  gap: 10px;
+  padding: 9px 15px;
+  gap: 9px;
+  border-bottom: 1px solid var(--toolbar-border);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.controls input[type="file"] {
-  color: inherit;
-  font-size: 13px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #bfc8dc;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+.brand-gem {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 
-.controls button {
-  padding: 8px 16px;
-  border-radius: 7px;
-  border: none;
-  background: #4f8ef7;
-  color: #fff;
-  font-size: 13px;
+.toolbar-sep { width: 1px; height: 24px; background: rgba(255,255,255,0.09); flex-shrink: 0; }
+
+.tool-group { display: flex; align-items: center; gap: 2px; }
+
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(191,200,220,0.60);
+  font-size: 11.5px;
   font-weight: 500;
   cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
 }
+.upload-btn:hover { background: rgba(255,255,255,0.07); color: #bfc8dc; }
+.upload-btn svg   { flex-shrink: 0; pointer-events: none; }
 
-.controls button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+/* #svgUpload keeps its native disabled state during simulation; this
+   sibling selector mirrors that state onto its styled label, since the
+   input itself is visually hidden in favor of the label-as-button. */
+#svgUpload:disabled + .upload-btn { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════
+   CANVAS AREA
+   ══════════════════════════════════════════════════════ */
+.canvas-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 40px;
+  background: #edf0f6;
+  flex-shrink: 0;
 }
 
 #simCanvas {
-  background: #ffffff;
-  border: 1px solid #2a3140;
-  image-rendering: pixelated;
-  width: 400px;
+  display: block;
+  width:  400px;
   height: 400px;
+  border-radius: 3px;
+  box-shadow: var(--shadow-canvas);
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  image-rendering: pixelated;
+  background: #ffffff;
 }
+
+/* ══════════════════════════════════════════════════════
+   CONTROLS BAR
+   ══════════════════════════════════════════════════════ */
+.controls-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-top: 1px solid var(--border);
+  background: #fafbfc;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.ctrl-group  { display: flex; align-items: center; gap: 6px; }
+.ctrl-spacer { flex: 1; }
+
+.ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+  border: 1.5px solid var(--accent-a);
+  background: var(--accent-a);
+  color: #fff;
+}
+.ctrl-btn:hover:not(:disabled)  { background: var(--accent-a-hover); border-color: var(--accent-a-hover); }
+.ctrl-btn:active:not(:disabled) { opacity: 0.78; transform: translateY(1px); }
+.ctrl-btn:disabled              { opacity: 0.28; cursor: not-allowed; }
+.ctrl-btn svg                   { flex-shrink: 0; pointer-events: none; }
+
+.btn-reset {
+  border: 1.5px solid var(--red-border);
+  color: var(--red-text);
+  background: var(--red-bg);
+}
+.btn-reset:hover:not(:disabled) { background: var(--red-hover); }
+
+.btn-stop {
+  border: 1.5px solid var(--amber-border);
+  color: var(--amber-text);
+  background: var(--amber-bg);
+}
+.btn-stop:hover:not(:disabled) { background: var(--amber-hover); }
+
+.slider-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #6b7280;
+}
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.slider-ctrl input[type="range"] {
+  width: 90px;
+  accent-color: var(--accent-a);
+}
+.slider-value {
+  font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-a);
+  min-width: 30px;
+}
+
+/* ══════════════════════════════════════════════════════
+   HINT STRIP
+   ══════════════════════════════════════════════════════ */
+.hint-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 7px 16px 8px;
+  border-top: 1px solid var(--border);
+  background: #f8f9fb;
+  flex-shrink: 0;
+}
+.hint-item { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #9aa3b0; }
+.swatch {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.scale-bar {
+  display: inline-block;
+  width: 150px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: linear-gradient(to right,
+    rgb(68, 1, 84), rgb(59, 82, 139), rgb(33, 145, 140), rgb(94, 201, 98), rgb(253, 231, 37));
+}
+
 </style>
 </head>
 <body>
-  <main class="app">
-    <h1>Web CFD Mini Labs</h1>
-    <div class="controls">
-      <input type="file" id="svgUpload" accept=".svg">
-      <button id="btnStart" disabled>Start Simulation</button>
+
+<div class="app-card">
+  <div class="accent-bar"></div>
+
+  <header class="toolbar">
+
+    <div class="brand">
+      <span class="brand-gem">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <polygon points="6,1 11,5 6,11 1,5" fill="rgba(255,255,255,0.92)"/>
+        </svg>
+      </span>
+      Web CFD Mini Labs
     </div>
+
+    <div class="toolbar-sep"></div>
+
+    <div class="tool-group">
+      <input type="file" id="svgUpload" accept=".svg" hidden>
+      <label class="upload-btn" for="svgUpload" title="Cargar la geometría SVG exportada desde Vector Studio">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17,8 12,3 7,8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Cargar SVG
+      </label>
+    </div>
+
+  </header>
+
+  <main class="canvas-area">
     <canvas id="simCanvas" width="200" height="200"></canvas>
   </main>
+
+  <footer class="controls-bar">
+    <div class="ctrl-group">
+      <button class="ctrl-btn btn-reset" id="btnReset" disabled title="Borrar todo y empezar de nuevo">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7"/>
+          <polyline points="21,3 21,9 15,9"/>
+        </svg>
+        Reset
+      </button>
+    </div>
+    <div class="ctrl-spacer"></div>
+    <div class="ctrl-group">
+      <label class="slider-ctrl">
+        Velocidad Entrada 1
+        <span class="slider-row">
+          <input type="range" id="sliderInlet1" min="0.0" max="0.1" step="0.001" value="0.05">
+          <span class="slider-value" id="sliderInlet1Value">0.05</span>
+        </span>
+      </label>
+      <label class="slider-ctrl">
+        Velocidad Entrada 2
+        <span class="slider-row">
+          <input type="range" id="sliderInlet2" min="0.0" max="0.1" step="0.001" value="0.05">
+          <span class="slider-value" id="sliderInlet2Value">0.05</span>
+        </span>
+      </label>
+      <button class="ctrl-btn btn-stop" id="btnStop" disabled title="Detener la simulación">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" stroke="none"/>
+        </svg>
+        Stop Simulation
+      </button>
+      <button class="ctrl-btn" id="btnStart" disabled title="Ejecutar el solver LBM sobre la geometría cargada">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="6,4 20,12 6,20" fill="currentColor" stroke="none"/>
+        </svg>
+        Start Simulation
+      </button>
+    </div>
+  </footer>
+
+  <div class="hint-strip">
+    <span class="hint-item">Left-click + drag: paint inlet</span>
+    <span class="hint-item"><span class="swatch" style="background:#dc2828;"></span>Inlet</span>
+    <span class="hint-item">Right-click + drag: paint outlet</span>
+    <span class="hint-item"><span class="swatch" style="background:#285adc;"></span>Outlet</span>
+    <span class="hint-item"><span class="swatch" style="background:#000000;"></span>Wall</span>
+    <span class="hint-item">
+      0 (Lento)
+      <span class="scale-bar"></span>
+      Max (Rápido)
+    </span>
+  </div>
+
+</div>
   <script>
 /* ══════════════════════════════════════════════════════════════════════
    Shared grid constants (formerly duplicated across geometry.js,
@@ -84,7 +363,7 @@ h1 {
    declared once here since they now share a single script scope).
    ══════════════════════════════════════════════════════════════════════ */
 const GRID_SIZE = 200;
-const FLUID = 0, WALL = 1, INLET = 2, OUTLET = 3;
+const FLUID = 0, WALL = 1, INLET_1 = 2, OUTLET = 3, INLET_2 = 4;
 
 /* ══════════════════════════════════════════════════════════════════════
    geometry.js
@@ -106,7 +385,7 @@ function parseSVGToGrid(file) {
         const ctx = canvas.getContext('2d');
 
         /* White fill first: transparent SVG regions must rasterize as
-           fluid, not as black, once composited onto the grid. */
+           solid block (wall), not as black, once composited onto the grid. */
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
         ctx.drawImage(img, 0, 0, GRID_SIZE, GRID_SIZE);
@@ -114,12 +393,14 @@ function parseSVGToGrid(file) {
         const { data } = ctx.getImageData(0, 0, GRID_SIZE, GRID_SIZE);
         const grid = new Uint8Array(GRID_SIZE * GRID_SIZE);
 
+        /* The student's drawn strokes are the hollow micro-channels bored
+           into a solid block: dark ink -> fluid, everything else -> wall. */
         for (let i = 0; i < grid.length; i++) {
           const r = data[i * 4];
           const g = data[i * 4 + 1];
           const b = data[i * 4 + 2];
           const brightness = (r + g + b) / 3;
-          grid[i] = brightness < 128 ? 1 : 0;
+          grid[i] = brightness < 128 ? 0 : 1;
         }
 
         URL.revokeObjectURL(url);
@@ -153,13 +434,20 @@ const W   = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36];
 const OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6];
 
 const TAU           = 1.0;   /* relaxation time -> water-like viscosity */
-const INLET_UX      = 0.05;
 const REFERENCE_RHO = 1.0;
 
 class LBMSolver {
-  constructor(grid) {
+  /* inlet1Dir/inlet2Dir: {x, y} unit vectors giving each inlet's local
+     flow direction (see applyDesignMarkers below), so the forced inlet
+     velocity follows the channel's actual orientation instead of
+     assuming a fixed +x direction - that assumption broke down on
+     diagonal or branching channels, where the forced flow crashed into
+     the wall and never developed past the inlet. */
+  constructor(grid, inlet1Dir = { x: 1, y: 0 }, inlet2Dir = { x: 1, y: 0 }) {
     this.grid = grid;
     this.size = GRID_SIZE;
+    this.inlet1Dir = inlet1Dir;
+    this.inlet2Dir = inlet2Dir;
 
     this.f    = new Float32Array(N * Q);
     this.fNew = new Float32Array(N * Q);
@@ -180,8 +468,11 @@ class LBMSolver {
     }
   }
 
-  step() {
-    const { grid, f, fNew, rho, ux, uy, size } = this;
+  /* u1, u2: velocity magnitude (lattice units/step) for INLET_1 and
+     INLET_2, independently controllable and capped at 0.1 by the UI
+     sliders to stay well below the LBM Mach-number stability limit. */
+  step(u1 = 0.05, u2 = 0.05) {
+    const { grid, f, fNew, rho, ux, uy, size, inlet1Dir, inlet2Dir } = this;
 
     /* Pass 1: macroscopic moments, boundary forcing, BGK collision (in place on f) */
     for (let idx = 0; idx < N; idx++) {
@@ -198,15 +489,14 @@ class LBMSolver {
       u /= r;
       v /= r;
 
-      if (grid[idx] === INLET) {
-        /* Equilibrium boundary: fix both rho and u, ignoring the streamed-in
-           sum. The populations entering from outside the domain are never
-           replenished by streaming alone, so forcing velocity but deriving
-           rho from that incomplete sum drains mass from the inlet column
-           every step. */
+      if (grid[idx] === INLET_1) {
         r = REFERENCE_RHO;
-        u = INLET_UX;
-        v = 0.0;
+        u = inlet1Dir.x * u1;
+        v = inlet1Dir.y * u1;
+      } else if (grid[idx] === INLET_2) {
+        r = REFERENCE_RHO;
+        u = inlet2Dir.x * u2;
+        v = inlet2Dir.y * u2;
       } else if (grid[idx] === OUTLET) {
         r = REFERENCE_RHO;
       }
@@ -297,7 +587,7 @@ class Renderer {
 
     this.inletCells = [];
     for (let idx = 0; idx < grid.length; idx++) {
-      if (grid[idx] === INLET) this.inletCells.push(idx);
+      if (grid[idx] === INLET_1 || grid[idx] === INLET_2) this.inletCells.push(idx);
     }
 
     this.particles = Array.from({ length: PARTICLE_COUNT }, () => this._spawnParticle());
@@ -378,19 +668,126 @@ const STEPS_PER_FRAME = 12;
 const COLORS = {
   [FLUID]:  [255, 255, 255],
   [WALL]:   [0, 0, 0],
-  [INLET]:  [220, 40, 40],
+  [INLET_1]: [220, 40, 40],
+  [INLET_2]: [220, 40, 40],
   [OUTLET]: [40, 90, 220],
 };
 
-const svgUpload = document.getElementById('svgUpload');
-const simCanvas = document.getElementById('simCanvas');
-const btnStart  = document.getElementById('btnStart');
-const ctx       = simCanvas.getContext('2d');
+const svgUpload    = document.getElementById('svgUpload');
+const simCanvas    = document.getElementById('simCanvas');
+const btnStart     = document.getElementById('btnStart');
+const btnStop      = document.getElementById('btnStop');
+const btnReset     = document.getElementById('btnReset');
+const sliderInlet1      = document.getElementById('sliderInlet1');
+const sliderInlet2      = document.getElementById('sliderInlet2');
+const sliderInlet1Value = document.getElementById('sliderInlet1Value');
+const sliderInlet2Value = document.getElementById('sliderInlet2Value');
+const ctx               = simCanvas.getContext('2d');
 
 let grid = null;
 let painting = false;
 let paintValue = null;
 let simulationRunning = false;
+let animationFrameId = null;
+let inlet1Dir = { x: 1, y: 0 };
+let inlet2Dir = { x: 1, y: 0 };
+let inlet1Speed = parseFloat(sliderInlet1.value);
+let inlet2Speed = parseFloat(sliderInlet2.value);
+
+/* Vector Studio's background template (see BG_SNAP_POINTS in
+   vector_studio_v5_2.html) fixes two small indicator dots near the top
+   and one near the bottom of its 141.7x141.7 canvas as permanent snap
+   targets — every student's channel walls snap their endpoints to
+   these exact points. That template is stripped before export, so the
+   uploaded SVG carries no visual trace of the dots; their positions
+   are hardcoded here to match, so the two top dots are always the
+   inlets and the bottom dot is always the outlet, with no manual
+   painting required to go from design to simulation. */
+const CANVAS_UNITS      = 141.7;
+const MARKER_SEARCH_R   = 5;   /* grid cells: how far to hunt for open fluid if a marker lands on a wall pixel */
+const MARKER_FLOOD_R    = 12;  /* grid cells: how far the inlet/outlet region can spread from each marker */
+const INLET_MARKERS_SVG  = [[43.8, 21.7], [101.4, 21.7]];
+const OUTLET_MARKERS_SVG = [[71, 127.7]];
+
+function svgToGrid(x, y) {
+  return {
+    x: Math.round(x * GRID_SIZE / CANVAS_UNITS),
+    y: Math.round(y * GRID_SIZE / CANVAS_UNITS),
+  };
+}
+
+function findNearestFluidCell(grid, x, y) {
+  if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && grid[y * GRID_SIZE + x] !== WALL) {
+    return { x, y };
+  }
+
+  for (let r = 1; r <= MARKER_SEARCH_R; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+        if (grid[ny * GRID_SIZE + nx] !== WALL) return { x: nx, y: ny };
+      }
+    }
+  }
+
+  return null;
+}
+
+/* Flood-fills the connected fluid region from (originX, originY) with
+   `value`, and returns a unit vector pointing from the origin toward
+   the region's centroid - the local direction the channel runs in.
+   The solver forces each inlet's velocity along this vector (scaled by
+   its slider) instead of a fixed +x direction, since a hardcoded
+   direction breaks on diagonal or branching channels: the forced flow
+   crashes into the wall and never develops past the inlet. */
+function floodFillBoundary(grid, originX, originY, value) {
+  const seed = findNearestFluidCell(grid, originX, originY);
+  if (!seed) return null;
+
+  const visited = new Set([seed.y * GRID_SIZE + seed.x]);
+  const queue = [seed];
+  let sumX = 0, sumY = 0, count = 0;
+
+  while (queue.length > 0) {
+    const { x, y } = queue.shift();
+    grid[y * GRID_SIZE + x] = value;
+    sumX += x; sumY += y; count++;
+
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+      if (Math.max(Math.abs(nx - originX), Math.abs(ny - originY)) > MARKER_FLOOD_R) continue;
+
+      const nIdx = ny * GRID_SIZE + nx;
+      if (visited.has(nIdx) || grid[nIdx] === WALL) continue;
+
+      visited.add(nIdx);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+
+  const dx = sumX / count - originX;
+  const dy = sumY / count - originY;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: dx / len, y: dy / len };
+}
+
+function applyDesignMarkers(grid) {
+  const [m1, m2] = INLET_MARKERS_SVG;
+  const p1 = svgToGrid(m1[0], m1[1]);
+  const p2 = svgToGrid(m2[0], m2[1]);
+
+  inlet1Dir = floodFillBoundary(grid, p1.x, p1.y, INLET_1) || { x: 1, y: 0 };
+  inlet2Dir = floodFillBoundary(grid, p2.x, p2.y, INLET_2) || { x: 1, y: 0 };
+
+  for (const [svgX, svgY] of OUTLET_MARKERS_SVG) {
+    const { x, y } = svgToGrid(svgX, svgY);
+    floodFillBoundary(grid, x, y, OUTLET);
+  }
+}
 
 function drawGrid(grid) {
   const imageData = ctx.createImageData(GRID_SIZE, GRID_SIZE);
@@ -431,13 +828,53 @@ function paintAt(event) {
   drawCell(x, y, paintValue);
 }
 
+function stopSimulation() {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
+  simulationRunning = false;
+  svgUpload.disabled = false;
+  btnStart.disabled = !grid;
+  btnStop.disabled = true;
+}
+
+function resetSimulation() {
+  stopSimulation();
+
+  grid = null;
+  painting = false;
+  paintValue = null;
+
+  svgUpload.value = '';
+  svgUpload.disabled = false;
+  btnStart.disabled = true;
+  btnStop.disabled = true;
+  btnReset.disabled = true;
+
+  ctx.clearRect(0, 0, simCanvas.width, simCanvas.height);
+}
+
 svgUpload.addEventListener('change', async (event) => {
   const file = event.target.files[0];
   if (!file) return;
 
   grid = await parseSVGToGrid(file);
+  applyDesignMarkers(grid);
   drawGrid(grid);
   btnStart.disabled = false;
+  btnReset.disabled = false;
+});
+
+sliderInlet1.addEventListener('input', () => {
+  inlet1Speed = parseFloat(sliderInlet1.value);
+  sliderInlet1Value.textContent = sliderInlet1.value;
+});
+
+sliderInlet2.addEventListener('input', () => {
+  inlet2Speed = parseFloat(sliderInlet2.value);
+  sliderInlet2Value.textContent = sliderInlet2.value;
 });
 
 simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -445,7 +882,7 @@ simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
 simCanvas.addEventListener('mousedown', (event) => {
   if (simulationRunning) return;
 
-  if (event.button === 0)      paintValue = INLET;
+  if (event.button === 0)      paintValue = INLET_1;
   else if (event.button === 2) paintValue = OUTLET;
   else return;
 
@@ -468,18 +905,29 @@ btnStart.addEventListener('click', () => {
   simulationRunning = true;
   svgUpload.disabled = true;
   btnStart.disabled = true;
+  btnStop.disabled = false;
 
-  const solver = new LBMSolver(grid);
+  const solver = new LBMSolver(grid, inlet1Dir, inlet2Dir);
   const renderer = new Renderer(simCanvas, grid);
 
   function frame() {
-    for (let i = 0; i < STEPS_PER_FRAME; i++) solver.step();
+    for (let i = 0; i < STEPS_PER_FRAME; i++) solver.step(inlet1Speed, inlet2Speed);
     renderer.drawHeatmap(solver.ux, solver.uy);
     renderer.drawStreamlines(solver.ux, solver.uy);
-    requestAnimationFrame(frame);
+    animationFrameId = requestAnimationFrame(frame);
   }
 
-  requestAnimationFrame(frame);
+  animationFrameId = requestAnimationFrame(frame);
+});
+
+btnStop.addEventListener('click', () => {
+  if (!simulationRunning) return;
+  stopSimulation();
+});
+
+btnReset.addEventListener('click', () => {
+  if (!grid && !simulationRunning) return;
+  resetSimulation();
 });
   </script>
 </body>
