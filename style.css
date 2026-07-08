@@ -40,6 +40,12 @@ h1 {
   color: inherit;
 }
 
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .controls input[type="file"] {
   color: inherit;
   font-size: 13px;

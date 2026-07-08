@@ -210,9 +210,21 @@ body {
   font-weight: 500;
   color: #6b7280;
 }
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .slider-ctrl input[type="range"] {
   width: 90px;
   accent-color: var(--accent-a);
+}
+.slider-value {
+  font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-a);
+  min-width: 30px;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -235,6 +247,16 @@ body {
   width: 9px; height: 9px;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+.scale-bar {
+  display: inline-block;
+  width: 150px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: linear-gradient(to right,
+    rgb(68, 1, 84), rgb(59, 82, 139), rgb(33, 145, 140), rgb(94, 201, 98), rgb(253, 231, 37));
 }
 
 </style>
@@ -291,11 +313,17 @@ body {
     <div class="ctrl-group">
       <label class="slider-ctrl">
         Velocidad Entrada 1
-        <input type="range" id="sliderInlet1" min="0.0" max="0.1" step="0.001" value="0.05">
+        <span class="slider-row">
+          <input type="range" id="sliderInlet1" min="0.0" max="0.1" step="0.001" value="0.05">
+          <span class="slider-value" id="sliderInlet1Value">0.05</span>
+        </span>
       </label>
       <label class="slider-ctrl">
         Velocidad Entrada 2
-        <input type="range" id="sliderInlet2" min="0.0" max="0.1" step="0.001" value="0.05">
+        <span class="slider-row">
+          <input type="range" id="sliderInlet2" min="0.0" max="0.1" step="0.001" value="0.05">
+          <span class="slider-value" id="sliderInlet2Value">0.05</span>
+        </span>
       </label>
       <button class="ctrl-btn btn-stop" id="btnStop" disabled title="Detener la simulación">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -320,6 +348,11 @@ body {
     <span class="hint-item">Right-click + drag: paint outlet</span>
     <span class="hint-item"><span class="swatch" style="background:#285adc;"></span>Outlet</span>
     <span class="hint-item"><span class="swatch" style="background:#000000;"></span>Wall</span>
+    <span class="hint-item">
+      0 (Lento)
+      <span class="scale-bar"></span>
+      Max (Rápido)
+    </span>
   </div>
 
 </div>
@@ -645,9 +678,11 @@ const simCanvas    = document.getElementById('simCanvas');
 const btnStart     = document.getElementById('btnStart');
 const btnStop      = document.getElementById('btnStop');
 const btnReset     = document.getElementById('btnReset');
-const sliderInlet1 = document.getElementById('sliderInlet1');
-const sliderInlet2 = document.getElementById('sliderInlet2');
-const ctx          = simCanvas.getContext('2d');
+const sliderInlet1      = document.getElementById('sliderInlet1');
+const sliderInlet2      = document.getElementById('sliderInlet2');
+const sliderInlet1Value = document.getElementById('sliderInlet1Value');
+const sliderInlet2Value = document.getElementById('sliderInlet2Value');
+const ctx               = simCanvas.getContext('2d');
 
 let grid = null;
 let painting = false;
@@ -834,10 +869,12 @@ svgUpload.addEventListener('change', async (event) => {
 
 sliderInlet1.addEventListener('input', () => {
   inlet1Speed = parseFloat(sliderInlet1.value);
+  sliderInlet1Value.textContent = sliderInlet1.value;
 });
 
 sliderInlet2.addEventListener('input', () => {
   inlet2Speed = parseFloat(sliderInlet2.value);
+  sliderInlet2Value.textContent = sliderInlet2.value;
 });
 
 simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());

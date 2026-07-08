@@ -2406,6 +2406,7 @@ document.getElementById('btnDownloadCFD').addEventListener('click', () => {
   const cloneWorkspace = clone.querySelector('#studentWorkspace');
   cloneWorkspace.querySelectorAll('*').forEach(el => {
     el.setAttribute('stroke', '#000000');
+    el.setAttribute('fill', 'none');
   });
 
   clone.setAttribute('xmlns',  'http://www.w3.org/2000/svg');

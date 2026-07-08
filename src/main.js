@@ -14,14 +14,16 @@ const COLORS = {
   [OUTLET]: [40, 90, 220],
 };
 
-const svgUpload    = document.getElementById('svgUpload');
-const simCanvas    = document.getElementById('simCanvas');
-const btnStart     = document.getElementById('btnStart');
-const btnStop      = document.getElementById('btnStop');
-const btnReset     = document.getElementById('btnReset');
-const sliderInlet1 = document.getElementById('sliderInlet1');
-const sliderInlet2 = document.getElementById('sliderInlet2');
-const ctx          = simCanvas.getContext('2d');
+const svgUpload         = document.getElementById('svgUpload');
+const simCanvas         = document.getElementById('simCanvas');
+const btnStart          = document.getElementById('btnStart');
+const btnStop           = document.getElementById('btnStop');
+const btnReset          = document.getElementById('btnReset');
+const sliderInlet1      = document.getElementById('sliderInlet1');
+const sliderInlet2      = document.getElementById('sliderInlet2');
+const sliderInlet1Value = document.getElementById('sliderInlet1Value');
+const sliderInlet2Value = document.getElementById('sliderInlet2Value');
+const ctx               = simCanvas.getContext('2d');
 
 let grid = null;
 let painting = false;
@@ -208,10 +210,12 @@ svgUpload.addEventListener('change', async (event) => {
 
 sliderInlet1.addEventListener('input', () => {
   inlet1Speed = parseFloat(sliderInlet1.value);
+  sliderInlet1Value.textContent = sliderInlet1.value;
 });
 
 sliderInlet2.addEventListener('input', () => {
   inlet2Speed = parseFloat(sliderInlet2.value);
+  sliderInlet2Value.textContent = sliderInlet2.value;
 });
 
 simCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
