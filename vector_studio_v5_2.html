@@ -259,6 +259,13 @@ body {
 .btn-preview:hover              { background: rgba(79,142,247,0.20); }
 .btn-preview.active             { background: var(--accent-a); color: #fff; border-color: var(--accent-a); }
 
+.btn-import {
+  border: 1.5px solid var(--tool-ring);
+  color: var(--accent-a);
+  background: var(--tool-fill);
+}
+.btn-import:hover { background: rgba(79,142,247,0.20); }
+
 /* Canvas visibly changes character while the laser preview is showing —
    mirrors Illustrator's Outline View feel (view-only, no crosshair). */
 #svgCanvas.laser-preview-active { cursor: default; box-shadow: var(--shadow-canvas), 0 0 0 2.5px var(--accent-a); }
@@ -498,6 +505,16 @@ kbd {
     <div class="ctrl-spacer"></div>
 
     <div class="ctrl-group">
+      <input type="file" id="fileImportSVG" accept=".svg,image/svg+xml" style="display:none">
+      <button class="ctrl-btn btn-import" id="btnImportSVG" title="Importar un diseño SVG guardado previamente para continuar editándolo">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17,8 12,3 7,8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Importar SVG
+      </button>
       <button class="ctrl-btn btn-clear" id="btnClear" title="Borrar todos los dibujos del estudiante">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
@@ -1664,6 +1681,76 @@ document.getElementById('btnClear').addEventListener('click', () => {
   redoStack     = []; btnRedo.disabled = true;
   setHUD(null);
   while (workspace.firstChild) workspace.removeChild(workspace.firstChild);
+});
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   IMPORT SVG
+   ══════════════════════════════════════════════════════════════════════
+   Lets a student re-open a previously downloaded design and keep
+   editing it. Works best with a file from "Exportar CFD" — that export
+   never runs the laser optimizer, so every path/rect/polygon keeps its
+   original geometry and, for paths, its data-anchors, and drops
+   straight back into the canvas exactly as it was. A "Descargar SVG"
+   (laser-optimized) file can also be imported and will still display,
+   move and rotate normally, but its pen paths lose their original
+   anchors during that export — collectSnapPoints() and the laser
+   optimizer both already fall back gracefully when data-anchors is
+   missing, so nothing further is needed here to handle that case.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const btnImportSVG  = document.getElementById('btnImportSVG');
+const fileImportSVG = document.getElementById('fileImportSVG');
+
+btnImportSVG.addEventListener('click', () => fileImportSVG.click());
+
+fileImportSVG.addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (workspace.children.length > 0) {
+    const proceed = confirm('Importar reemplazará tu dibujo actual. ¿Continuar?');
+    if (!proceed) { fileImportSVG.value = ''; return; }
+  }
+
+  try {
+    const text   = await file.text();
+    const parsed = new DOMParser().parseFromString(text, 'image/svg+xml');
+    if (parsed.querySelector('parsererror')) throw new Error('Archivo SVG inválido');
+
+    const importedWorkspace = parsed.querySelector('#studentWorkspace') || parsed.documentElement;
+    const importedShapes = Array.from(importedWorkspace.children).filter(el =>
+      ['path', 'rect', 'polygon'].includes(el.tagName.toLowerCase())
+    );
+
+    if (importedShapes.length === 0) {
+      flashHUD('El archivo no contiene formas reconocibles.');
+      return;
+    }
+
+    if (previewOn) exitLaserPreview();
+    clearPenPreview(); clearRotOverlay(); hideSnap();
+    currentPathEl = null; penPoints     = [];
+    isDrawing     = false; activeShape   = null;
+    selectedEl    = null; isRotating    = false;
+    isMovingObj   = false;
+    redoStack     = []; btnRedo.disabled = true;
+    setHUD(null);
+    while (workspace.firstChild) workspace.removeChild(workspace.firstChild);
+
+    const pointerMode = (currentTool === 'rotate' || currentTool === 'move') ? 'all' : 'none';
+    for (const el of importedShapes) {
+      const clone = document.importNode(el, true);
+      clone.setAttribute('pointer-events', pointerMode);
+      workspace.appendChild(clone);
+    }
+
+    flashHUD(`Diseño importado: ${importedShapes.length} forma${importedShapes.length === 1 ? '' : 's'}`);
+  } catch (err) {
+    flashHUD('No se pudo importar el archivo SVG.');
+  } finally {
+    fileImportSVG.value = '';
+  }
 });
 
 
