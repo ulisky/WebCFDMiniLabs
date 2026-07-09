@@ -13,6 +13,25 @@ const FLUID = 0, WALL = 1, INLET_1 = 2, OUTLET = 3, INLET_2 = 4;
 const TAU           = 1.0;   /* relaxation time -> water-like viscosity */
 const REFERENCE_RHO = 1.0;
 
+/* Small density assist at the inlets (vs. REFERENCE_RHO at the outlet):
+   forcing velocity alone gives the channel no sustained driving force
+   past the point of injection, so momentum injected at the inlet
+   decays via wall friction over the channel's length with nothing to
+   replenish it. That's barely noticeable for a short, direct, wide
+   channel, but for a longer or narrower one - e.g. a left inlet that
+   runs horizontally or diagonally toward the right before turning
+   down to the outlet, which travels a good deal further than a direct
+   diagonal path - the injected flow can decay to a barely-visible
+   trickle well before reaching the outlet, reading as "the flow stops
+   there and never reaches the pipe." A real pressure difference (not
+   just the forced boundary velocity) keeps driving flow through that
+   resistance the whole way down the channel. 1.2 was picked as the
+   largest value that still exactly matches the forced boundary
+   velocity on a straight/wide reference channel (checked up to the
+   slider's 0.1 max) - anything higher starts overshooting past the
+   requested velocity instead of just helping it propagate. */
+const INLET_RHO = 1.2;
+
 export class LBMSolver {
   /* inlet1Dir/inlet2Dir: {x, y} unit vectors giving each inlet's local
      flow direction (see applyDesignMarkers in main.js), so the forced
@@ -67,11 +86,11 @@ export class LBMSolver {
       v /= r;
 
       if (grid[idx] === INLET_1) {
-        r = REFERENCE_RHO;
+        r = INLET_RHO;
         u = inlet1Dir.x * u1;
         v = inlet1Dir.y * u1;
       } else if (grid[idx] === INLET_2) {
-        r = REFERENCE_RHO;
+        r = INLET_RHO;
         u = inlet2Dir.x * u2;
         v = inlet2Dir.y * u2;
       } else if (grid[idx] === OUTLET) {
